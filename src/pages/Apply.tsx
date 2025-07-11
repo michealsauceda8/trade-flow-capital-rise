@@ -91,7 +91,7 @@ const Apply = () => {
           <Card className="bg-slate-800/50 backdrop-blur-lg border-slate-700">
             <CardHeader>
               <CardTitle className="flex items-center space-x-3 text-white">
-                <steps[currentStep - 1].icon className="h-6 w-6 text-blue-400" />
+                {React.createElement(steps[currentStep - 1].icon, { className: "h-6 w-6 text-blue-400" })}
                 <span>Step {currentStep}: {steps[currentStep - 1].title}</span>
               </CardTitle>
             </CardHeader>
