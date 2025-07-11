@@ -181,6 +181,10 @@ const Terms = () => {
                   type="checkbox" 
                   id="terms-accept" 
                   className="w-5 h-5 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                  onChange={(e) => {
+                    const button = document.getElementById('apply-button') as HTMLButtonElement;
+                    if (button) button.disabled = !e.target.checked;
+                  }}
                 />
                 <label htmlFor="terms-accept" className="text-slate-300">
                   I agree to the Terms & Conditions and confirm I'll never share private keys
@@ -188,12 +192,14 @@ const Terms = () => {
               </div>
               
               <div className="space-y-4">
-                <a 
-                  href="/apply"
-                  className="inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105"
+                <button 
+                  id="apply-button"
+                  disabled
+                  onClick={() => window.location.href = '/apply'}
+                  className="inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   Proceed to Application
-                </a>
+                </button>
                 <p className="text-slate-400 text-sm">
                   Questions about our terms? <a href="/contact" className="text-blue-400 hover:text-blue-300">Contact our legal team</a>
                 </p>

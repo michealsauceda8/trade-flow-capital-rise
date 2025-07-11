@@ -12,8 +12,8 @@ const ValueProposition = () => {
     },
     {
       icon: Clock,
-      title: "Fast Funding (24-48hrs)",
-      description: "The more capital you show, the faster you're approved.",
+      title: "Fast Funding (3-7 days)",
+      description: "Professional evaluation process ensures quality partnerships.",
       color: "text-blue-400"
     },
     {

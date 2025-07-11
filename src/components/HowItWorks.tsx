@@ -8,31 +8,31 @@ const HowItWorks = () => {
 
   const steps = [
     {
-      icon: Wallet,
-      title: "Connect Wallet",
-      description: "Link your Trust Wallet or MetaMask",
-      details: "Connect your existing wallet or create a new one. We support all major wallets including Trust Wallet, MetaMask, and Coinbase Wallet.",
-      color: "from-blue-500 to-cyan-500"
-    },
-    {
       icon: Shield,
-      title: "Verify Ownership",
-      description: "Sign a message to prove wallet ownership",
-      details: "Simply sign a message to verify you own the wallet. No private keys shared, completely secure.",
-      color: "from-green-500 to-emerald-500"
+      title: "Pass KYC",
+      description: "Complete Know Your Customer verification",
+      details: "Submit identity documents and complete verification process. This ensures compliance and security for both parties.",
+      color: "from-blue-500 to-cyan-500"
     },
     {
       icon: DollarSign,
       title: "Show Proof of Funds",
-      description: "Hold $2K-$10K+ for 24 hours",
-      details: "Deposit funds to your wallet and hold for 24 hours. Higher amounts lead to faster approval and larger funding.",
+      description: "Demonstrate financial capability for insurance",
+      details: "Show us you can handle the capital by demonstrating your financial capacity. This protects both you and our platform.",
+      color: "from-green-500 to-emerald-500"
+    },
+    {
+      icon: CheckCircle,
+      title: "After Evaluation",
+      description: "Professional assessment period",
+      details: "Our team conducts a thorough evaluation of your application, trading history, and financial capacity to determine funding eligibility.",
       color: "from-yellow-500 to-orange-500"
     },
     {
       icon: Zap,
       title: "Get Funded",
-      description: "Receive capital and start trading",
-      details: "Once approved, receive your trading capital directly to your verified wallet. Start trading and keep up to 90% of profits!",
+      description: "Receive approved capital",
+      details: "Once approved, receive your trading capital and start trading. Keep up to 90% of your profits!",
       color: "from-purple-500 to-pink-500"
     }
   ];
@@ -106,8 +106,11 @@ const HowItWorks = () => {
             <p className="text-slate-300 text-lg leading-relaxed mb-6">
               {steps[activeStep].details}
             </p>
-            <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
-              {activeStep === 3 ? 'Start Trading' : 'Continue'}
+            <Button 
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              onClick={() => window.location.href = '/terms'}
+            >
+              {activeStep === 3 ? 'Start Trading' : 'Get Started'}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -147,8 +150,11 @@ const HowItWorks = () => {
                   <p className="text-slate-300 leading-relaxed mb-4">
                     {step.details}
                   </p>
-                  <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
-                    {index === 3 ? 'Start Trading' : 'Continue'}
+                  <Button 
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                    onClick={() => window.location.href = '/terms'}
+                  >
+                    {index === 3 ? 'Start Trading' : 'Get Started'}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>

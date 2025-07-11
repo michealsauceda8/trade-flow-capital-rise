@@ -1,53 +1,79 @@
-
 import React, { useState } from 'react';
-import { Wallet, Shield, DollarSign, Zap, ArrowRight, AlertTriangle, CheckCircle, Copy, ExternalLink } from 'lucide-react';
+import { Shield, Wallet, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
+  const [kycCompleted, setKycCompleted] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [balance, setBalance] = useState(0);
-  const [targetAmount, setTargetAmount] = useState(2000);
+  const [targetAmount, setTargetAmount] = useState(10000);
+  const [kycData, setKycData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    address: '',
+    city: '',
+    country: '',
+    documentType: '',
+    documentFile: null as File | null,
+    selfieFile: null as File | null
+  });
 
   const steps = [
-    { id: 1, title: "Connect Wallet", icon: Wallet, completed: false },
-    { id: 2, title: "Verify Ownership", icon: Shield, completed: false },
-    { id: 3, title: "Proof of Funds", icon: DollarSign, completed: false },
-    { id: 4, title: "Submit Application", icon: Zap, completed: false }
+    { title: "KYC Verification", icon: Shield, completed: kycCompleted },
+    { title: "Connect Wallet", icon: Wallet, completed: walletConnected },
+    { title: "Verify Ownership", icon: CheckCircle, completed: false },
+    { title: "Proof of Funds", icon: DollarSign, completed: false },
+    { title: "Submit Application", icon: FileText, completed: false }
   ];
 
-  const handleConnectWallet = () => {
-    // Simulate wallet connection
-    setWalletConnected(true);
-    setWalletAddress('0x742d35Cc6634C0532925a3b8D0Ac3e0cf9e0d5e');
+  const handleKycSubmit = () => {
+    setKycCompleted(true);
     setCurrentStep(2);
   };
 
-  const handleVerifyOwnership = () => {
+  const handleConnectTrustWallet = () => {
+    // Simulate Trust Wallet connection
+    setWalletConnected(true);
+    setWalletAddress('0x742d35Cc6634C0532925a3b8D7C9C2cF79a9aB8d');
+    setBalance(5000);
     setCurrentStep(3);
   };
 
-  const handleSubmitApplication = () => {
+  const handleVerifyOwnership = () => {
     setCurrentStep(4);
   };
+
+  const handleSubmitApplication = () => {
+    setCurrentStep(5);
+  };
+
+  const fundingTiers = [
+    { range: "$2K - $5K", funding: "$10K - $25K", profit: "80%", risk: "Low", time: "7 days" },
+    { range: "$5K - $10K", funding: "$25K - $50K", profit: "85%", risk: "Medium", time: "5 days" },
+    { range: "$10K+", funding: "$50K+", profit: "90%", risk: "High", time: "3 days" }
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-900">
       <Navbar />
       
       <div className="pt-24 pb-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Apply for <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Funding</span>
+              Funding <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Application</span>
             </h1>
-            <p className="text-xl text-slate-300">
-              Complete the steps below to get funded in 24-48 hours
+            <p className="text-xl text-slate-300 mb-8">
+              Complete your application to get funded in 3-7 days
             </p>
           </div>
 
@@ -55,35 +81,27 @@ const Apply = () => {
           <div className="mb-12">
             <div className="flex justify-between items-center mb-4">
               {steps.map((step, index) => (
-                <div 
-                  key={step.id}
-                  className={`flex items-center ${index < steps.length - 1 ? 'flex-1' : ''}`}
-                >
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
-                    currentStep >= step.id 
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-600 border-transparent text-white' 
-                      : 'border-slate-600 text-slate-400'
+                <div key={index} className="flex flex-col items-center">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${
+                    currentStep > index + 1 || step.completed
+                      ? 'bg-green-500 text-white' 
+                      : currentStep === index + 1 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-slate-700 text-slate-400'
                   }`}>
-                    <step.icon className="h-6 w-6" />
+                    {step.completed ? <CheckCircle className="h-6 w-6" /> : React.createElement(step.icon, { className: "h-6 w-6" })}
                   </div>
-                  {index < steps.length - 1 && (
-                    <div className={`flex-1 h-1 mx-4 rounded-full transition-all duration-300 ${
-                      currentStep > step.id ? 'bg-gradient-to-r from-blue-500 to-purple-600' : 'bg-slate-700'
-                    }`}></div>
-                  )}
+                  <span className={`text-sm ${currentStep === index + 1 ? 'text-white' : 'text-slate-400'}`}>
+                    {step.title}
+                  </span>
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-4 gap-4">
-              {steps.map((step) => (
-                <div key={step.id} className="text-center">
-                  <div className={`text-sm font-medium transition-colors ${
-                    currentStep >= step.id ? 'text-white' : 'text-slate-500'
-                  }`}>
-                    {step.title}
-                  </div>
-                </div>
-              ))}
+            <div className="w-full bg-slate-700 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${(currentStep / steps.length) * 100}%` }}
+              ></div>
             </div>
           </div>
 
@@ -96,213 +114,269 @@ const Apply = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              
-              {/* Step 1: Connect Wallet */}
+
+              {/* Step 1: KYC Verification */}
               {currentStep === 1 && (
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-4">Connect Your Wallet</h3>
-                    <p className="text-slate-300 mb-6">
-                      Connect your crypto wallet to verify your identity. We support all major wallets.
-                    </p>
-                  </div>
-
-                  <Alert className="border-red-500/50 bg-red-500/10">
-                    <AlertTriangle className="h-4 w-4 text-red-400" />
-                    <AlertDescription className="text-red-300">
-                      <strong>Security Warning:</strong> Never share your recovery phrase or private key! 
-                      We only verify ownership via signature.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button 
-                      onClick={handleConnectWallet}
-                      className="h-16 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white flex items-center justify-center space-x-3"
-                    >
-                      <img src="https://trustwallet.com/assets/images/trust_platform_assets/logo.png" alt="Trust Wallet" className="h-8 w-8" />
-                      <span className="font-semibold">Trust Wallet</span>
-                    </Button>
-                    <Button 
-                      onClick={handleConnectWallet}
-                      className="h-16 bg-gradient-to-r from-orange-600 to-red-500 hover:from-orange-700 hover:to-red-600 text-white flex items-center justify-center space-x-3"
-                    >
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask" className="h-8 w-8" />
-                      <span className="font-semibold">MetaMask</span>
-                    </Button>
-                  </div>
-
-                  <div className="text-center">
-                    <p className="text-slate-400 text-sm">
-                      Don't have a wallet? <a href="#" className="text-blue-400 hover:text-blue-300">Download Trust Wallet</a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Verify Ownership */}
-              {currentStep === 2 && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-4">Verify Wallet Ownership</h3>
-                    <p className="text-slate-300 mb-6">
-                      Sign a message to prove you own this wallet. This is completely secure and doesn't give us access to your funds.
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-700/50 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-slate-400">Connected Wallet:</span>
-                      <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="font-mono text-sm text-white bg-slate-800 p-3 rounded">
-                      {walletAddress}
-                    </div>
-                  </div>
-
-                  <Alert className="border-green-500/50 bg-green-500/10">
-                    <CheckCircle className="h-4 w-4 text-green-400" />
-                    <AlertDescription className="text-green-300">
-                      Your wallet is connected securely. Click below to sign the verification message.
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="text-center">
-                    <Button 
-                      onClick={handleVerifyOwnership}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3"
-                    >
-                      Sign Message to Verify
-                      <Shield className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Proof of Funds */}
-              {currentStep === 3 && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-4">Proof of Funds Deposit</h3>
-                    <p className="text-slate-300 mb-6">
-                      Deposit funds to your connected wallet and hold for 24 hours. Higher amounts = faster approval & larger funding.
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <h3 className="text-blue-400 font-semibold mb-2">Why KYC is Required</h3>
+                    <p className="text-slate-300 text-sm">
+                      Know Your Customer (KYC) verification ensures regulatory compliance and protects both parties. 
+                      This process is essential for legitimate trading operations.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-700/50 rounded-lg p-6">
-                      <h4 className="text-white font-semibold mb-4">Current Balance</h4>
-                      <div className="text-3xl font-bold text-blue-400 mb-2">
-                        ${balance.toLocaleString()}
-                      </div>
-                      <div className="text-slate-400 text-sm">
-                        Last updated: Just now
-                      </div>
+                    <div className="space-y-4">
+                      <h4 className="text-white font-semibold">Personal Information</h4>
+                      <Input
+                        placeholder="First Name"
+                        value={kycData.firstName}
+                        onChange={(e) => setKycData({...kycData, firstName: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="Last Name"
+                        value={kycData.lastName}
+                        onChange={(e) => setKycData({...kycData, lastName: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        type="email"
+                        placeholder="Email Address"
+                        value={kycData.email}
+                        onChange={(e) => setKycData({...kycData, email: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        type="tel"
+                        placeholder="Phone Number"
+                        value={kycData.phone}
+                        onChange={(e) => setKycData({...kycData, phone: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        type="date"
+                        placeholder="Date of Birth"
+                        value={kycData.dateOfBirth}
+                        onChange={(e) => setKycData({...kycData, dateOfBirth: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
                     </div>
 
-                    <div className="bg-slate-700/50 rounded-lg p-6">
-                      <h4 className="text-white font-semibold mb-4">Target Amount</h4>
-                      <div className="text-3xl font-bold text-green-400 mb-2">
-                        ${targetAmount.toLocaleString()}+
-                      </div>
-                      <div className="text-slate-400 text-sm">
-                        Recommended minimum
+                    <div className="space-y-4">
+                      <h4 className="text-white font-semibold">Address Information</h4>
+                      <Input
+                        placeholder="Street Address"
+                        value={kycData.address}
+                        onChange={(e) => setKycData({...kycData, address: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="City"
+                        value={kycData.city}
+                        onChange={(e) => setKycData({...kycData, city: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="Country"
+                        value={kycData.country}
+                        onChange={(e) => setKycData({...kycData, country: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+
+                      <div className="space-y-3">
+                        <h4 className="text-white font-semibold">Document Upload</h4>
+                        <div className="space-y-2">
+                          <label className="block text-slate-300 text-sm">Government ID (Passport/Driver's License)</label>
+                          <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-slate-500 transition-colors">
+                            <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                            <p className="text-slate-400 text-sm">Click to upload or drag and drop</p>
+                            <input type="file" className="hidden" accept="image/*,.pdf" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-slate-300 text-sm">Selfie with ID</label>
+                          <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-slate-500 transition-colors">
+                            <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                            <p className="text-slate-400 text-sm">Click to upload or drag and drop</p>
+                            <input type="file" className="hidden" accept="image/*" />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-blue-500/10 border border-blue-500/50 rounded-lg p-6">
+                  <Button 
+                    onClick={handleKycSubmit}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  >
+                    Submit KYC Documents
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Step 2: Connect Wallet */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
-                      <DollarSign className="h-6 w-6 text-blue-400 mt-1" />
+                      <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" />
                       <div>
-                        <h4 className="text-white font-semibold mb-2">Why We Need This</h4>
-                        <p className="text-slate-300">
-                          This proves you're a serious trader with real capital, not someone looking to gamble. 
-                          Your funds remain 100% under your control at all times.
+                        <h3 className="text-yellow-400 font-semibold mb-1">Trust Wallet Only</h3>
+                        <p className="text-slate-300 text-sm">
+                          Currently, we only support Trust Wallet for enhanced security and compatibility. 
+                          More wallet options will be available soon.
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h4 className="text-white font-semibold">Funding Tiers</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                        <div className="text-blue-400 font-semibold mb-2">Starter</div>
-                        <div className="text-white font-bold mb-1">$2K - $5K</div>
-                        <div className="text-slate-400 text-sm">Get up to $25K funding</div>
-                      </div>
-                      <div className="bg-slate-700/30 rounded-lg p-4 border border-yellow-500">
-                        <div className="text-yellow-400 font-semibold mb-2">Professional</div>
-                        <div className="text-white font-bold mb-1">$5K - $10K</div>
-                        <div className="text-slate-400 text-sm">Get up to $100K funding</div>
-                      </div>
-                      <div className="bg-slate-700/30 rounded-lg p-4 border border-purple-500">
-                        <div className="text-purple-400 font-semibold mb-2">Elite</div>
-                        <div className="text-white font-bold mb-1">$10K+</div>
-                        <div className="text-slate-400 text-sm">Get up to $500K funding</div>
-                      </div>
+                  <div className="text-center space-y-6">
+                    <div className="bg-slate-700/50 rounded-2xl p-8">
+                      <Wallet className="h-16 w-16 text-blue-400 mx-auto mb-4" />
+                      <h3 className="text-2xl font-bold text-white mb-2">Connect Trust Wallet</h3>
+                      <p className="text-slate-300 mb-6">
+                        Connect your Trust Wallet to verify ownership and enable secure transactions.
+                      </p>
+                      
+                      <Button 
+                        onClick={handleConnectTrustWallet}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
+                      >
+                        Connect Trust Wallet
+                        <Wallet className="ml-2 h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
 
-                  <div className="text-center">
-                    <Button 
-                      onClick={handleSubmitApplication}
-                      disabled={balance < targetAmount}
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 text-white px-8 py-3"
-                    >
-                      {balance >= targetAmount ? 'Continue to Submission' : 'Waiting for Deposit...'}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <div className="text-sm text-slate-400">
+                      <p>✓ Your private keys remain secure in your wallet</p>
+                      <p>✓ We only verify wallet ownership, never access funds</p>
+                      <p>✓ End-to-end encrypted connection</p>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Step 4: Submit Application */}
-              {currentStep === 4 && (
-                <div className="space-y-6 text-center">
-                  <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle className="h-10 w-10 text-white" />
+              {/* Step 3: Verify Ownership */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                    <h3 className="text-green-400 font-semibold mb-2">Wallet Connected Successfully!</h3>
+                    <p className="text-slate-300 text-sm">Address: {walletAddress}</p>
                   </div>
-                  
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-4">Application Submitted!</h3>
-                    <p className="text-slate-300 mb-6">
-                      Your application has been submitted successfully. We'll review it and get back to you within 24-48 hours.
+
+                  <div className="text-center space-y-6">
+                    <div className="bg-slate-700/50 rounded-2xl p-8">
+                      <Shield className="h-16 w-16 text-green-400 mx-auto mb-4" />
+                      <h3 className="text-2xl font-bold text-white mb-2">Verify Wallet Ownership</h3>
+                      <p className="text-slate-300 mb-6">
+                        Sign a message to prove you own this wallet. This is completely secure and free.
+                      </p>
+                      
+                      <Button 
+                        onClick={handleVerifyOwnership}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3"
+                      >
+                        Sign Message to Verify
+                        <CheckCircle className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Proof of Funds */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="bg-slate-700/50 rounded-2xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-4">Current Wallet Balance</h3>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-green-400 mb-2">${balance.toLocaleString()} USDT</div>
+                          <p className="text-slate-300">Verified on-chain balance</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-700/50 rounded-2xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-4">Target Funding Amount</h3>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-blue-400 mb-2">${targetAmount.toLocaleString()}</div>
+                          <p className="text-slate-300">Based on your proof of funds</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-bold text-white">Funding Tiers</h3>
+                      {fundingTiers.map((tier, index) => (
+                        <div key={index} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="font-semibold text-white">{tier.range} Proof</div>
+                              <div className="text-slate-300">{tier.funding} Funding</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-green-400 font-semibold">{tier.profit} Profit</div>
+                              <div className="text-slate-400 text-sm">{tier.time}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <p className="text-slate-300 text-sm">
+                      <strong className="text-blue-400">Note:</strong> Your proof of funds demonstrates your ability to handle trading capital responsibly. 
+                      Higher amounts lead to faster approval and better funding terms.
                     </p>
                   </div>
 
-                  <div className="bg-slate-700/50 rounded-lg p-6">
-                    <h4 className="text-white font-semibold mb-4">What happens next?</h4>
-                    <div className="space-y-3 text-left">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                        <span className="text-slate-300">We verify your wallet balance and trading history</span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                        <span className="text-slate-300">Risk assessment and compliance check</span>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                        <span className="text-slate-300">Funding approval and capital deployment</span>
-                      </div>
-                    </div>
-                  </div>
+                  <Button 
+                    onClick={handleSubmitApplication}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  >
+                    Submit Application
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
 
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
-                      Track Application Status
-                    </Button>
-                    <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800">
-                      Join Our Telegram
-                      <ExternalLink className="ml-2 h-4 w-4" />
-                    </Button>
+              {/* Step 5: Application Submitted */}
+              {currentStep === 5 && (
+                <div className="text-center space-y-6">
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8">
+                    <CheckCircle className="h-20 w-20 text-green-400 mx-auto mb-6" />
+                    <h3 className="text-3xl font-bold text-white mb-4">Application Submitted!</h3>
+                    <p className="text-slate-300 text-lg mb-6">
+                      Your funding application has been submitted successfully. Our team will review your application within 3-7 days.
+                    </p>
+                    
+                    <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
+                      <h4 className="text-white font-semibold mb-2">Next Steps:</h4>
+                      <ul className="text-slate-300 text-sm space-y-1">
+                        <li>✓ Application review (1-2 days)</li>
+                        <li>✓ Risk assessment (1-2 days)</li>
+                        <li>✓ Final approval (1-3 days)</li>
+                        <li>✓ Funding deployment</li>
+                      </ul>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                      <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
+                        Track Application Status
+                      </Button>
+                      <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                        Return to Dashboard
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
+
             </CardContent>
           </Card>
         </div>
