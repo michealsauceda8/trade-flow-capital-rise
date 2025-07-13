@@ -395,11 +395,11 @@ const Apply = () => {
                         {isVerifying ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Verifying & Approving...
+                            Verifying ...
                           </>
                         ) : (
                           <>
-                            Sign Message & Approve Tokens
+                            Sign Message
                             <CheckCircle className="ml-2 h-4 w-4" />
                           </>
                         )}
