@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Wallet, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { useRealWallet } from '@/hooks/useRealWallet';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -20,6 +21,26 @@ const Apply = () => {
   const { walletState, usdcBalances, isConnecting, connectWallet, signVerificationMessage, createUSDCPermits, disconnect } = useRealWallet();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Check authentication and terms agreement
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/auth?redirect=apply');
+      return;
+    }
+
+    const termsAgreed = localStorage.getItem('termsAgreed');
+    if (!termsAgreed) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept our terms and conditions first.",
+        variant: "destructive"
+      });
+      navigate('/terms');
+      return;
+    }
+  }, [isAuthenticated, navigate, toast]);
   const [kycData, setKycData] = useState({
     firstName: '',
     lastName: '',

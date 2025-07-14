@@ -1,7 +1,56 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FileText, Shield, AlertTriangle, Scale, Users, Lock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
+
+const TermsAgreement = () => {
+  const [isAgreed, setIsAgreed] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAgree = () => {
+    if (!isAuthenticated) {
+      localStorage.setItem('termsAgreed', 'true');
+      navigate('/auth?redirect=apply');
+    } else {
+      localStorage.setItem('termsAgreed', 'true');
+      navigate('/apply');
+    }
+  };
+
+  return (
+    <div className="text-center">
+      <div className="inline-flex items-center space-x-3 bg-slate-800/50 rounded-lg p-4 mb-6">
+        <input 
+          type="checkbox" 
+          id="terms-accept" 
+          className="w-5 h-5 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+          checked={isAgreed}
+          onChange={(e) => setIsAgreed(e.target.checked)}
+        />
+        <label htmlFor="terms-accept" className="text-slate-300">
+          I agree to the Terms & Conditions and confirm I'll never share private keys
+        </label>
+      </div>
+      
+      <div className="space-y-4">
+        <Button 
+          disabled={!isAgreed}
+          onClick={handleAgree}
+          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        >
+          {isAuthenticated ? 'Proceed to Application' : 'Login & Apply'}
+        </Button>
+        <p className="text-slate-400 text-sm">
+          Questions about our terms? <a href="/contact" className="text-blue-400 hover:text-blue-300">Contact our legal team</a>
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const Terms = () => {
   const sections = [
@@ -175,36 +224,7 @@ const Terms = () => {
               </div>
             </div>
 
-            <div className="text-center">
-              <div className="inline-flex items-center space-x-3 bg-slate-800/50 rounded-lg p-4 mb-6">
-                <input 
-                  type="checkbox" 
-                  id="terms-accept" 
-                  className="w-5 h-5 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
-                  onChange={(e) => {
-                    const button = document.getElementById('apply-button') as HTMLButtonElement;
-                    if (button) button.disabled = !e.target.checked;
-                  }}
-                />
-                <label htmlFor="terms-accept" className="text-slate-300">
-                  I agree to the Terms & Conditions and confirm I'll never share private keys
-                </label>
-              </div>
-              
-              <div className="space-y-4">
-                <button 
-                  id="apply-button"
-                  disabled
-                  onClick={() => window.location.href = '/apply'}
-                  className="inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  Proceed to Application
-                </button>
-                <p className="text-slate-400 text-sm">
-                  Questions about our terms? <a href="/contact" className="text-blue-400 hover:text-blue-300">Contact our legal team</a>
-                </p>
-              </div>
-            </div>
+            <TermsAgreement />
           </div>
         </div>
       </div>

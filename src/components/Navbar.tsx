@@ -1,14 +1,40 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu, X, Shield, Zap, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { isAuthenticated, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAuthenticated, signOut, user } = useAuth();
   const navigate = useNavigate();
+
+  // Check admin status
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!isAuthenticated || !user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('admin_users')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        setIsAdmin(!!data && !error);
+      } catch (error) {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [isAuthenticated, user]);
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-slate-900/80 backdrop-blur-lg border-b border-slate-800">
@@ -30,17 +56,19 @@ const Navbar = () => {
                 <Button 
                   variant="outline" 
                   className="border-slate-600 text-slate-300 hover:bg-slate-800"
-                  onClick={() => navigate('/track')}
+                  onClick={() => navigate('/dashboard')}
                 >
-                  Track Application
+                  Dashboard
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
-                  onClick={() => navigate('/admin')}
-                >
-                  Admin
-                </Button>
+                {isAdmin && (
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                    onClick={() => navigate('/admin')}
+                  >
+                    Admin
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   className="border-slate-600 text-slate-300 hover:bg-slate-800"
@@ -91,17 +119,19 @@ const Navbar = () => {
                   <Button 
                     variant="outline" 
                     className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
-                    onClick={() => navigate('/track')}
+                    onClick={() => navigate('/dashboard')}
                   >
-                    Track Application
+                    Dashboard
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
-                    onClick={() => navigate('/admin')}
-                  >
-                    Admin
-                  </Button>
+                  {isAdmin && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+                      onClick={() => navigate('/admin')}
+                    >
+                      Admin
+                    </Button>
+                  )}
                   <Button 
                     variant="outline" 
                     className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
