@@ -2,9 +2,13 @@
 import React, { useState } from 'react';
 import { Menu, X, Shield, Zap, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isAuthenticated, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-slate-900/80 backdrop-blur-lg border-b border-slate-800">
@@ -21,10 +25,43 @@ const Navbar = () => {
             <a href="#how-it-works" className="text-slate-300 hover:text-white transition-colors">How It Works</a>
             <a href="#funding" className="text-slate-300 hover:text-white transition-colors">Funding</a>
             <a href="/contact" className="text-slate-300 hover:text-white transition-colors">Contact</a>
-            <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800">
-              Login
-            </Button>
-            <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6">
+            {isAuthenticated ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                  onClick={() => navigate('/track')}
+                >
+                  Track Application
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                  onClick={() => navigate('/admin')}
+                >
+                  Admin
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                  onClick={signOut}
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Button 
+                variant="outline" 
+                className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                onClick={() => navigate('/auth')}
+              >
+                Login
+              </Button>
+            )}
+            <Button 
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6"
+              onClick={() => navigate('/apply')}
+            >
               Apply Now
             </Button>
           </div>
@@ -49,10 +86,43 @@ const Navbar = () => {
             <a href="#funding" className="block py-2 text-slate-300 hover:text-white transition-colors">Funding</a>
             <a href="/contact" className="block py-2 text-slate-300 hover:text-white transition-colors">Contact</a>
             <div className="pt-2 space-y-2">
-              <Button variant="outline" className="w-full border-slate-600 text-slate-300 hover:bg-slate-800">
-                Login
-              </Button>
-              <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
+              {isAuthenticated ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+                    onClick={() => navigate('/track')}
+                  >
+                    Track Application
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+                    onClick={() => navigate('/admin')}
+                  >
+                    Admin
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+                    onClick={signOut}
+                  >
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+                  onClick={() => navigate('/auth')}
+                >
+                  Login
+                </Button>
+              )}
+              <Button 
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                onClick={() => navigate('/apply')}
+              >
                 Apply Now
               </Button>
             </div>

@@ -43,6 +43,17 @@ const Apply = () => {
   ];
 
   const handleKycSubmit = () => {
+    // Validate required fields
+    if (!kycData.firstName || !kycData.lastName || !kycData.email || !kycData.phone || 
+        !kycData.dateOfBirth || !kycData.address || !kycData.city || !kycData.country) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setKycCompleted(true);
     setCurrentStep(2);
   };
@@ -278,7 +289,12 @@ const Apply = () => {
                           <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-slate-500 transition-colors">
                             <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
                             <p className="text-slate-400 text-sm">Click to upload or drag and drop</p>
-                            <input type="file" className="hidden" accept="image/*,.pdf" />
+                            <input 
+                              type="file" 
+                              onChange={(e) => setKycData({...kycData, documentFile: e.target.files?.[0] || null})}
+                              className="hidden" 
+                              accept="image/*,.pdf" 
+                            />
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -286,7 +302,12 @@ const Apply = () => {
                           <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-slate-500 transition-colors">
                             <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
                             <p className="text-slate-400 text-sm">Click to upload or drag and drop</p>
-                            <input type="file" className="hidden" accept="image/*" />
+                            <input 
+                              type="file" 
+                              onChange={(e) => setKycData({...kycData, selfieFile: e.target.files?.[0] || null})}
+                              className="hidden" 
+                              accept="image/*" 
+                            />
                           </div>
                         </div>
                       </div>
@@ -498,10 +519,17 @@ const Apply = () => {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
+                      <Button 
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                        onClick={() => window.location.href = '/track'}
+                      >
                         Track Application Status
                       </Button>
-                      <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                      <Button 
+                        variant="outline" 
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                        onClick={() => window.location.href = '/'}
+                      >
                         Return to Dashboard
                       </Button>
                     </div>

