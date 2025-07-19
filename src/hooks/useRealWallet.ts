@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import EthereumProvider from '@walletconnect/ethereum-provider';
 import { useToast } from '@/hooks/use-toast';
 
 // Define interfaces for state and balances
@@ -91,36 +90,7 @@ export const useRealWallet = () => {
   });
   const [isConnecting, setIsConnecting] = useState(false);
   const [usdcBalances, setUsdcBalances] = useState<USDCBalance[]>([]);
-  const [walletConnectProvider, setWalletConnectProvider] =
-    useState<EthereumProvider | null>(null);
   const { toast } = useToast();
-
-  const initializeWalletConnect = useCallback(async () => {
-    try {
-      const provider = await EthereumProvider.init({
-        projectId: '6df13a6d80b8f6b1d747a4b12c9b5c8e', // Free public project ID
-        chains: [1], // Start with Ethereum mainnet
-        optionalChains: Object.keys(SUPPORTED_CHAINS).map(Number),
-        showQrModal: true,
-        metadata: {
-          name: 'Trading Fund Application',
-          description: 'Connect your wallet to apply for trading funds',
-          url: window.location.origin,
-          icons: ['https://walletconnect.com/walletconnect-logo.png'],
-        },
-      });
-      setWalletConnectProvider(provider);
-      return provider;
-    } catch (error) {
-      console.error('Failed to initialize WalletConnect:', error);
-      toast({
-        title: 'Initialization Failed',
-        description: 'Could not initialize WalletConnect.',
-        variant: 'destructive',
-      });
-      return null;
-    }
-  }, [toast]);
 
   const fetchUSDCBalances = useCallback(async (address: string) => {
     toast({
@@ -172,9 +142,6 @@ export const useRealWallet = () => {
   }, [toast]);
 
   const disconnect = useCallback(async () => {
-    if (walletConnectProvider?.connected) {
-      await walletConnectProvider.disconnect();
-    }
     setWalletState({
       address: null,
       chainId: null,
@@ -182,24 +149,26 @@ export const useRealWallet = () => {
       provider: null,
     });
     setUsdcBalances([]);
-    setWalletConnectProvider(null);
     toast({
       title: 'Wallet Disconnected',
       description: 'Your wallet has been disconnected.',
     });
-  }, [walletConnectProvider, toast]);
+  }, [toast]);
 
   const connectWallet = useCallback(async () => {
     setIsConnecting(true);
     try {
-      let provider: any;
-      if (typeof window !== 'undefined' && (window as any).ethereum) {
-        provider = (window as any).ethereum;
-      } else {
-        provider = walletConnectProvider ?? (await initializeWalletConnect());
-        if (!provider) return;
-        await provider.enable();
+      if (typeof window === 'undefined' || !(window as any).ethereum) {
+        toast({
+          title: 'Wallet Not Found',
+          description: 'Please install MetaMask or another Web3 wallet.',
+          variant: 'destructive',
+        });
+        return;
       }
+
+      const provider = (window as any).ethereum;
+      await provider.request({ method: 'eth_requestAccounts' });
 
       const ethProvider = new ethers.BrowserProvider(provider);
       const signer = await ethProvider.getSigner();
@@ -229,12 +198,7 @@ export const useRealWallet = () => {
     } finally {
       setIsConnecting(false);
     }
-  }, [
-    walletConnectProvider,
-    initializeWalletConnect,
-    fetchUSDCBalances,
-    toast,
-  ]);
+  }, [fetchUSDCBalances, toast]);
 
   // FIX: Re-added this function to handle simple message signing
   const signVerificationMessage = async (): Promise<string | null> => {
