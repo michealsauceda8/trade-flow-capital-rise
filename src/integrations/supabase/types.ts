@@ -392,6 +392,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_admin: {
+        Args: { user_uuid: string }
+        Returns: boolean
+      }
+      process_email_notifications: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       set_wallet_context: {
         Args: { wallet_addr: string }
         Returns: undefined
