@@ -106,7 +106,7 @@ const EnhancedAdmin = () => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!isAuthenticated || !user) {
-        navigate('/auth', { replace: true });
+        navigate('/auth?returnTo=/enhanced-admin', { replace: true });
         return;
       }
 
