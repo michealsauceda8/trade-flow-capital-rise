@@ -15,6 +15,7 @@ import EnhancedAdmin from "./pages/EnhancedAdmin";
 import CreateAdmins from "./pages/CreateAdmins";
 import ApplicationTracking from "./pages/ApplicationTracking";
 import Dashboard from "./pages/Dashboard";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -26,15 +27,38 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/apply" element={<Apply />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/enhanced-admin" element={<EnhancedAdmin />} />
-          <Route path="/create-admins" element={<CreateAdmins />} />
-          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/track" element={<ApplicationTracking />} />
+          
+          {/* Protected Routes */}
+          <Route path="/apply" element={
+            <ProtectedRoute>
+              <Apply />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          } />
+          <Route path="/enhanced-admin" element={
+            <ProtectedRoute>
+              <EnhancedAdmin />
+            </ProtectedRoute>
+          } />
+          <Route path="/create-admins" element={
+            <ProtectedRoute>
+              <CreateAdmins />
+            </ProtectedRoute>
+          } />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

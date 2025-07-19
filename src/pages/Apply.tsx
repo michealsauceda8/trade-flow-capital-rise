@@ -114,9 +114,8 @@ const Apply = () => {
           wallet_address: '',
           chain_id: 1,
           status: 'pending',
-          id_document_path: uploadedFiles.idDocument.path,
-          proof_of_address_path: uploadedFiles.proofOfAddress.path,
-          selfie_path: uploadedFiles.selfie.path
+          id_document_url: uploadedFiles.idDocument.path,
+          proof_of_address_url: uploadedFiles.proofOfAddress.path
         })
         .select()
         .single();

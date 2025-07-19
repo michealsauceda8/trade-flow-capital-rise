@@ -40,6 +40,7 @@ import {
 import Navbar from '@/components/Navbar';
 import { UserManagement } from '@/components/UserManagement';
 import { SystemSettings } from '@/components/SystemSettings';
+import { CMSSettings } from '@/components/CMSSettings';
 import { ApplicationDetails } from '@/components/ApplicationDetails';
 
 interface Application {
@@ -292,8 +293,19 @@ const EnhancedAdmin = () => {
   };
 
   const fetchAdminActivities = async () => {
-    // Skip admin activities for now since the table doesn't exist in types yet
-    setAdminActivities([]);
+    try {
+      const { data: activitiesData, error: activitiesError } = await (supabase as any)
+        .from('admin_activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (activitiesError) throw activitiesError;
+      setAdminActivities(activitiesData || []);
+    } catch (error: any) {
+      console.error('Error fetching admin activities:', error);
+      setAdminActivities([]);
+    }
   };
 
   const updateApplicationStatus = async () => {
@@ -564,12 +576,13 @@ const EnhancedAdmin = () => {
 
         {/* Main Content */}
         <Tabs defaultValue="applications" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-slate-800/50">
+          <TabsList className="grid w-full grid-cols-7 bg-slate-800/50">
             <TabsTrigger value="applications">Applications</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="emails">Email Logs</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="cms">CMS</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
           
@@ -902,6 +915,11 @@ const EnhancedAdmin = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* CMS Tab */}
+          <TabsContent value="cms">
+            <CMSSettings />
           </TabsContent>
 
           {/* Settings Tab - Now using SystemSettings component */}

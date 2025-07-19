@@ -150,7 +150,7 @@ export const SystemSettings: React.FC = () => {
 
   const getFundingTiers = () => {
     const fundingTiersValue = getSetting('funding_tiers');
-    return Array.isArray(fundingTiersValue) ? fundingTiersValue : [];
+    return fundingTiersValue?.tiers || [];
   };
 
   const getApplicationSettings = () => {
