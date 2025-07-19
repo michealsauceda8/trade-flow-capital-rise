@@ -50,16 +50,23 @@ interface Application {
   last_name: string;
   email: string;
   phone: string;
+  date_of_birth: string;
+  address: string;
+  city: string;
+  country: string;
+  nationality: string;
+  postal_code: string;
   funding_amount: number;
   funding_tier: string;
+  trading_experience: string;
   wallet_address: string;
+  chain_id: number;
   created_at: string;
   submitted_at: string;
   user_balances: any[];
   wallet_signatures: any[];
-  id_document_path?: string;
-  proof_of_address_path?: string;
-  selfie_path?: string;
+  id_document_url?: string;
+  proof_of_address_url?: string;
   document_status?: string;
   review_notes?: string;
 }
@@ -251,9 +258,8 @@ const EnhancedAdmin = () => {
     const apps = appsData || [];
     const documentsCount = apps.reduce((count, app) => {
       let docs = 0;
-      if (app.id_document_path) docs++;
-      if (app.proof_of_address_path) docs++;
-      if (app.selfie_path) docs++;
+      if (app.id_document_url) docs++;
+      if (app.proof_of_address_url) docs++;
       return count + docs;
     }, 0);
 
@@ -286,15 +292,8 @@ const EnhancedAdmin = () => {
   };
 
   const fetchAdminActivities = async () => {
-    const { data: activitiesData, error: activitiesError } = await supabase
-      .from('admin_activity_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (activitiesError) throw activitiesError;
-
-    setAdminActivities(activitiesData || []);
+    // Skip admin activities for now since the table doesn't exist in types yet
+    setAdminActivities([]);
   };
 
   const updateApplicationStatus = async () => {
@@ -402,7 +401,7 @@ const EnhancedAdmin = () => {
         app.funding_amount,
         new Date(app.created_at).toLocaleDateString(),
         app.wallet_address,
-        `${app.id_document_path ? 'ID,' : ''}${app.proof_of_address_path ? 'Address,' : ''}${app.selfie_path ? 'Selfie' : ''}`.replace(/,$/, '')
+        `${app.id_document_url ? 'ID,' : ''}${app.proof_of_address_url ? 'Address,' : ''}`.replace(/,$/, '')
       ].join(','))
     ].join('\n');
 
@@ -652,9 +651,8 @@ const EnhancedAdmin = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                {app.id_document_path && <Badge variant="outline" className="text-xs">ID</Badge>}
-                                {app.proof_of_address_path && <Badge variant="outline" className="text-xs">Address</Badge>}
-                                {app.selfie_path && <Badge variant="outline" className="text-xs">Selfie</Badge>}
+                                {app.id_document_url && <Badge variant="outline" className="text-xs">ID</Badge>}
+                                {app.proof_of_address_url && <Badge variant="outline" className="text-xs">Address</Badge>}
                               </div>
                             </TableCell>
                             <TableCell className="text-white">
@@ -681,18 +679,12 @@ const EnhancedAdmin = () => {
                                       Application Details - {app.application_number}
                                     </DialogTitle>
                                   </DialogHeader>
-                                  {selectedApp && (
-                                    <ApplicationDetails
-                                      application={selectedApp}
-                                      onStatusUpdate={(appId, status) => {
-                                        setNewStatus(status);
-                                        updateApplicationStatus();
-                                      }}
-                                      onSendEmail={(appId, email, appNumber, type) => 
-                                        sendCustomEmail(appId, email, appNumber, type)
-                                      }
-                                    />
-                                  )}
+                                  <ApplicationDetails
+                                    application={selectedApp}
+                                    isOpen={!!selectedApp}
+                                    onClose={() => setSelectedApp(null)}
+                                    onUpdate={() => fetchAllData()}
+                                  />
                                 </DialogContent>
                               </Dialog>
                             </TableCell>
