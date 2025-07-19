@@ -1,18 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useWalletAuth } from '@/hooks/useWalletAuth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
 import { 
   FileText, 
   DollarSign, 
-  TrendingUp, 
   Clock, 
   CheckCircle, 
   AlertTriangle,
@@ -43,21 +40,21 @@ const Dashboard = () => {
     totalFundingRequested: 0
   });
 
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect to auth if not logged in with email
+  // Handle redirect to auth if not authenticated
   useEffect(() => {
-    if (!user) {
-      navigate('/auth');
+    if (!authLoading && !isAuthenticated) {
+      navigate('/auth', { replace: true });
     }
-  }, [user, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) {
+    if (user && isAuthenticated) {
       fetchApplications();
     }
-  }, [user]);
+  }, [user, isAuthenticated]);
 
   const fetchApplications = async () => {
     try {
@@ -108,12 +105,25 @@ const Dashboard = () => {
     }
   };
 
-  const handleSignOut = () => {
-    signOut();
-    navigate('/');
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/', { replace: true });
   };
 
-  if (!user) {
+  // Show loading while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-900">
+        <Navbar />
+        <div className="pt-24 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated - let the useEffect handle redirect
+  if (!isAuthenticated || !user) {
     return null;
   }
 

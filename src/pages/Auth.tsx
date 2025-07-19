@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -16,11 +17,12 @@ const Auth = () => {
   const { signIn, signUp, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate('/dashboard');
-    return null;
-  }
+  // Handle redirect to dashboard when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +30,7 @@ const Auth = () => {
     
     try {
       const { error } = await signIn(email, password);
-      if (!error) {
-        navigate('/dashboard');
-      }
+      // Don't navigate here - let the useEffect handle it when isAuthenticated changes
     } finally {
       setIsLoading(false);
     }
@@ -47,13 +47,20 @@ const Auth = () => {
     
     try {
       const { error } = await signUp(email, password);
-      if (!error) {
-        // Stay on auth page to show email confirmation message
-      }
+      // For signup, we stay on auth page to show email confirmation message
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking auth state
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
