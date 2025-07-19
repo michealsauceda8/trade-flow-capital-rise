@@ -18,7 +18,7 @@ const Auth = () => {
 
   // Redirect if already authenticated
   if (isAuthenticated) {
-    navigate('/');
+    navigate('/dashboard');
     return null;
   }
 
@@ -29,7 +29,7 @@ const Auth = () => {
     try {
       const { error } = await signIn(email, password);
       if (!error) {
-        navigate('/');
+        navigate('/dashboard');
       }
     } finally {
       setIsLoading(false);

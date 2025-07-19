@@ -44,21 +44,20 @@ const Dashboard = () => {
   });
 
   const { user, signOut } = useAuth();
-  const { isAuthenticated: isWalletAuthenticated, walletUser, signOut: walletSignOut } = useWalletAuth();
   const navigate = useNavigate();
 
-  // Redirect to auth if not logged in (either email or wallet)
+  // Redirect to auth if not logged in with email
   useEffect(() => {
-    if (!user && !isWalletAuthenticated) {
-      navigate('/wallet-auth');
+    if (!user) {
+      navigate('/auth');
     }
-  }, [user, isWalletAuthenticated, navigate]);
+  }, [user, navigate]);
 
   useEffect(() => {
-    if (user || isWalletAuthenticated) {
+    if (user) {
       fetchApplications();
     }
-  }, [user, isWalletAuthenticated]);
+  }, [user]);
 
   const fetchApplications = async () => {
     try {
@@ -71,12 +70,8 @@ const Dashboard = () => {
           user_balances(*)
         `);
 
-      // Filter by user type
-      if (user) {
-        query = query.eq('user_id', user.id);
-      } else if (walletUser) {
-        query = query.eq('wallet_user_id', walletUser.id);
-      }
+      // Filter by authenticated user
+      query = query.eq('user_id', user.id);
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
@@ -114,15 +109,11 @@ const Dashboard = () => {
   };
 
   const handleSignOut = () => {
-    if (user) {
-      signOut();
-    } else if (walletUser) {
-      walletSignOut();
-    }
+    signOut();
     navigate('/');
   };
 
-  if (!user && !isWalletAuthenticated) {
+  if (!user) {
     return null;
   }
 
@@ -145,7 +136,7 @@ const Dashboard = () => {
     rejected: 'destructive'
   };
 
-  const userDisplayName = user?.email || (walletUser ? `${walletUser.wallet_address.slice(0, 6)}...${walletUser.wallet_address.slice(-4)}` : 'User');
+  const userDisplayName = user?.email || 'User';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-900">
