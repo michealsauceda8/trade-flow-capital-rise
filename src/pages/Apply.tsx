@@ -9,12 +9,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { FileUpload } from '@/components/FileUpload';
 
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [kycCompleted, setKycCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [targetAmount, setTargetAmount] = useState(10000);
+  const [uploadedFiles, setUploadedFiles] = useState({
+    idDocument: { path: '', url: '' },
+    proofOfAddress: { path: '', url: '' },
+    selfie: { path: '', url: '' }
+  });
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,14 +53,13 @@ const Apply = () => {
     dateOfBirth: '',
     address: '',
     city: '',
+    postalCode: '',
     country: '',
-    documentType: '',
-    documentFile: null as File | null,
-    selfieFile: null as File | null
+    nationality: '',
+    tradingExperience: 'intermediate'
   });
 
   const steps = [
-    { title: "Terms Acceptance", icon: Shield, completed: localStorage.getItem('termsAgreed') === 'true' },
     { title: "KYC Verification", icon: FileText, completed: kycCompleted },
     { title: "Funding Selection", icon: DollarSign, completed: false },
     { title: "Submit Application", icon: CheckCircle, completed: false }
@@ -63,17 +68,18 @@ const Apply = () => {
   const handleKycSubmit = () => {
     // Validate required fields
     if (!kycData.firstName || !kycData.lastName || !kycData.email || !kycData.phone || 
-        !kycData.dateOfBirth || !kycData.address || !kycData.city || !kycData.country) {
+        !kycData.dateOfBirth || !kycData.address || !kycData.city || !kycData.country ||
+        !uploadedFiles.idDocument.path || !uploadedFiles.proofOfAddress.path) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields and upload required documents.",
         variant: "destructive"
       });
       return;
     }
     
     setKycCompleted(true);
-    setCurrentStep(3);
+    setCurrentStep(2);
   };
 
   const handleSubmitApplication = async () => {
@@ -100,14 +106,17 @@ const Apply = () => {
           address: kycData.address,
           city: kycData.city,
           country: kycData.country,
-          nationality: kycData.country,
-          postal_code: '00000',
-          trading_experience: 'intermediate',
+          nationality: kycData.nationality,
+          postal_code: kycData.postalCode,
+          trading_experience: kycData.tradingExperience,
           funding_amount: targetAmount,
           funding_tier: fundingTiers.find(tier => tier.amount === targetAmount)?.title || 'Custom',
           wallet_address: '',
           chain_id: 1,
-          status: 'pending'
+          status: 'pending',
+          id_document_path: uploadedFiles.idDocument.path,
+          proof_of_address_path: uploadedFiles.proofOfAddress.path,
+          selfie_path: uploadedFiles.selfie.path
         })
         .select()
         .single();
@@ -121,7 +130,7 @@ const Apply = () => {
         description: `Your application ${data.application_number} has been submitted successfully.`
       });
 
-      setCurrentStep(4);
+      setCurrentStep(3);
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -193,8 +202,8 @@ const Apply = () => {
             </CardHeader>
             <CardContent className="space-y-6">
 
-              {/* Step 2: KYC Verification */}
-              {currentStep === 2 && (
+              {/* Step 1: KYC Verification */}
+              {currentStep === 1 && (
                 <div className="space-y-6">
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                     <h3 className="text-blue-400 font-semibold mb-2">Why KYC is Required</h3>
@@ -263,24 +272,56 @@ const Apply = () => {
                         onChange={(e) => setKycData({...kycData, country: e.target.value})}
                         className="bg-slate-700 border-slate-600 text-white"
                       />
-
-                      <div className="space-y-3">
-                        <h4 className="text-white font-semibold">Document Upload</h4>
-                        <div className="space-y-2">
-                          <label className="block text-slate-300 text-sm">Government ID (Passport/Driver's License)</label>
-                          <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-slate-500 transition-colors">
-                            <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                            <p className="text-slate-400 text-sm">Click to upload or drag and drop</p>
-                            <input 
-                              type="file" 
-                              onChange={(e) => setKycData({...kycData, documentFile: e.target.files?.[0] || null})}
-                              className="hidden" 
-                              accept="image/*,.pdf" 
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      <Input
+                        placeholder="Postal Code"
+                        value={kycData.postalCode}
+                        onChange={(e) => setKycData({...kycData, postalCode: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="Nationality"
+                        value={kycData.nationality}
+                        onChange={(e) => setKycData({...kycData, nationality: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
                     </div>
+                  </div>
+
+                  <div className="col-span-2 space-y-6">
+                    <h4 className="text-white font-semibold">Document Upload</h4>
+                    
+                    <FileUpload
+                      folder="id-documents"
+                      label="Government ID"
+                      description="Upload your passport, driver's license, or national ID"
+                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
+                        ...prev,
+                        idDocument: { path, url }
+                      }))}
+                      required
+                    />
+
+                    <FileUpload
+                      folder="address-documents" 
+                      label="Proof of Address"
+                      description="Upload a utility bill, bank statement, or rental agreement (max 3 months old)"
+                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
+                        ...prev,
+                        proofOfAddress: { path, url }
+                      }))}
+                      required
+                    />
+
+                    <FileUpload
+                      folder="selfies"
+                      label="Selfie (Optional)"
+                      description="Upload a clear selfie for identity verification"
+                      accept={['image/*']}
+                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
+                        ...prev,
+                        selfie: { path, url }
+                      }))}
+                    />
                   </div>
 
                   <Button 
@@ -293,8 +334,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 3: Funding Selection */}
-              {currentStep === 3 && (
+              {/* Step 2: Funding Selection */}
+              {currentStep === 2 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
@@ -336,7 +377,7 @@ const Apply = () => {
                       </div>
 
                       <Button 
-                        onClick={() => setCurrentStep(4)}
+                        onClick={() => setCurrentStep(3)}
                         className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
                       >
                         Continue to Submit
@@ -347,8 +388,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 4: Submit Application */}
-              {currentStep === 4 && (
+              {/* Step 3: Submit Application */}
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
