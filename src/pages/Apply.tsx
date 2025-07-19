@@ -11,6 +11,39 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { FileUpload } from '@/components/FileUpload';
 
+// const Apply = () => {
+//   const [currentStep, setCurrentStep] = useState(1);
+//   const [kycCompleted, setKycCompleted] = useState(false);
+//   const [isSubmitting, setIsSubmitting] = useState(false);
+//   const [targetAmount, setTargetAmount] = useState(10000);
+//   const [uploadedFiles, setUploadedFiles] = useState({
+//     idDocument: { path: '', url: '' },
+//     proofOfAddress: { path: '', url: '' },
+//     selfie: { path: '', url: '' }
+//   });
+  
+//   const { user } = useAuth();
+//   const { toast } = useToast();
+//   const navigate = useNavigate();
+
+//   // Check authentication and terms agreement
+//   useEffect(() => {
+//     if (!user) {
+//       navigate('/auth?redirect=apply');
+//       return;
+//     }
+
+//     const termsAgreed = localStorage.getItem('termsAgreed');
+//     if (!termsAgreed) {
+//       toast({
+//         title: "Terms Required",
+//         description: "Please accept our terms and conditions first.",
+//         variant: "destructive"
+//       });
+//       navigate('/terms?redirect=apply');
+//       return;
+//     }
+//   }, [user, navigate, toast]);
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [kycCompleted, setKycCompleted] = useState(false);
@@ -22,29 +55,31 @@ const Apply = () => {
     selfie: { path: '', url: '' }
   });
   
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth(); // <-- add isLoading
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Check authentication and terms agreement
   useEffect(() => {
-    if (!user) {
-      navigate('/auth?redirect=apply');
-      return;
-    }
+  console.log('user:', user, 'isLoading:', isLoading);
+  if (isLoading) return;
 
-    const termsAgreed = localStorage.getItem('termsAgreed');
-    if (!termsAgreed) {
-      toast({
-        title: "Terms Required",
-        description: "Please accept our terms and conditions first.",
-        variant: "destructive"
-      });
-      navigate('/terms?redirect=apply');
-      return;
-    }
-  }, [user, navigate, toast]);
+  if (!user) {
+    navigate('/auth?redirect=apply');
+    return;
+  }
 
+  const termsAgreed = localStorage.getItem('termsAgreed');
+  if (!termsAgreed) {
+    toast({
+      title: "Terms Required",
+      description: "Please accept our terms and conditions first.",
+      variant: "destructive"
+    });
+    navigate('/terms?redirect=apply');
+    return;
+  }
+}, [user, isLoading, navigate, toast]);
   const [kycData, setKycData] = useState({
     firstName: '',
     lastName: '',

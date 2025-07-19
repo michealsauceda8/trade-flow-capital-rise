@@ -101,7 +101,7 @@ export const useAuth = () => {
 
     return { error };
   };
-
+  
   return {
     user,
     session,
