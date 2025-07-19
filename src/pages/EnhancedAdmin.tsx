@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { 
@@ -81,11 +80,12 @@ const statusColors = {
 };
 
 const EnhancedAdmin = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
   const [emailNotifications, setEmailNotifications] = useState<EmailNotification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminCheckLoading, setAdminCheckLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
@@ -102,11 +102,18 @@ const EnhancedAdmin = () => {
   });
   const navigate = useNavigate();
 
-  // Check admin status
+  // Check admin status only after auth loading is complete
   useEffect(() => {
     const checkAdminStatus = async () => {
-      console.log('Admin check - isAuthenticated:', isAuthenticated, 'user:', user?.email);
+      console.log('Admin check - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', user?.email);
       
+      // Wait for auth loading to complete
+      if (isLoading) {
+        console.log('Auth still loading, waiting...');
+        return;
+      }
+
+      // If not authenticated after loading is complete, redirect
       if (!isAuthenticated || !user) {
         console.log('Not authenticated, redirecting to auth');
         navigate('/auth?returnTo=/enhanced-admin', { replace: true });
@@ -115,6 +122,8 @@ const EnhancedAdmin = () => {
 
       try {
         console.log('Checking admin status for user:', user.id);
+        setAdminCheckLoading(true);
+        
         const { data, error } = await supabase
           .from('admin_users')
           .select('*')
@@ -134,6 +143,7 @@ const EnhancedAdmin = () => {
         }
 
         if (!data) {
+          console.log('User is not an admin');
           setIsAdmin(false);
           toast({
             title: "Access Denied",
@@ -144,26 +154,29 @@ const EnhancedAdmin = () => {
           return;
         }
 
+        console.log('User is an admin:', data);
         setIsAdmin(true);
       } catch (error) {
         console.error('Admin check error:', error);
         setIsAdmin(false);
         navigate('/', { replace: true });
+      } finally {
+        setAdminCheckLoading(false);
       }
     };
 
     checkAdminStatus();
-  }, [isAuthenticated, user, navigate]);
+  }, [isLoading, isAuthenticated, user, navigate]);
 
   // Fetch all data
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && !adminCheckLoading) {
       fetchAllData();
     }
-  }, [isAdmin]);
+  }, [isAdmin, adminCheckLoading]);
 
   const fetchAllData = async () => {
-    setIsLoading(true);
+    setIsDataLoading(true);
     try {
       // Fetch applications
       const { data: appsData, error: appsError } = await supabase
@@ -208,7 +221,7 @@ const EnhancedAdmin = () => {
         variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setIsDataLoading(false);
     }
   };
 
@@ -224,15 +237,11 @@ const EnhancedAdmin = () => {
 
       if (error) throw error;
 
-      // Note: Email notifications are now handled by database triggers
-      // The trigger will automatically insert into email_notifications table
-
       toast({
         title: "Status Updated",
         description: `Application status changed to ${newStatus}. Email notification will be sent automatically.`
       });
 
-      // Refresh data
       fetchAllData();
       setSelectedApp(null);
       setNewStatus('');
@@ -252,7 +261,6 @@ const EnhancedAdmin = () => {
 
   const sendCustomEmail = async (appId: string, email: string, appNumber: string, type: string) => {
     try {
-      // Insert email notification directly into database
       const { error } = await supabase
         .from('email_notifications')
         .insert({
@@ -271,7 +279,7 @@ const EnhancedAdmin = () => {
         description: `${type.replace('_', ' ')} email has been queued for sending`
       });
 
-      fetchAllData(); // Refresh to show new email in logs
+      fetchAllData();
     } catch (error: any) {
       toast({
         title: "Email Failed",
@@ -315,15 +323,24 @@ const EnhancedAdmin = () => {
     a.click();
   };
 
-  if (!isAdmin) {
+  // Show loading while checking authentication or admin status
+  if (isLoading || adminCheckLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-900">
         <Navbar />
         <div className="pt-24 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-400 mx-auto mb-4" />
+            <p className="text-slate-400">Checking authentication...</p>
+          </div>
         </div>
       </div>
     );
+  }
+
+  // If not admin, this component shouldn't render (redirect should have happened)
+  if (!isAdmin) {
+    return null;
   }
 
   return (
@@ -481,7 +498,7 @@ const EnhancedAdmin = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isDataLoading ? (
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
                   </div>
