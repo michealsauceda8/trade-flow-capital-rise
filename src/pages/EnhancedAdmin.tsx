@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -31,9 +32,15 @@ import {
   MoreHorizontal,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Activity,
+  BarChart3,
+  Shield
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { UserManagement } from '@/components/UserManagement';
+import { SystemSettings } from '@/components/SystemSettings';
+import { ApplicationDetails } from '@/components/ApplicationDetails';
 
 interface Application {
   id: string;
@@ -50,6 +57,11 @@ interface Application {
   submitted_at: string;
   user_balances: any[];
   wallet_signatures: any[];
+  id_document_path?: string;
+  proof_of_address_path?: string;
+  selfie_path?: string;
+  document_status?: string;
+  review_notes?: string;
 }
 
 interface EmailNotification {
@@ -62,6 +74,16 @@ interface EmailNotification {
   status: string;
 }
 
+interface AdminActivity {
+  id: string;
+  admin_id: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  details: any;
+  created_at: string;
+}
+
 interface Stats {
   totalApplications: number;
   pendingApplications: number;
@@ -69,6 +91,8 @@ interface Stats {
   rejectedApplications: number;
   totalFundingRequested: number;
   totalEmailsSent: number;
+  documentsUploaded: number;
+  activeUsers: number;
 }
 
 const statusColors = {
@@ -83,6 +107,7 @@ const EnhancedAdmin = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
   const [emailNotifications, setEmailNotifications] = useState<EmailNotification[]>([]);
+  const [adminActivities, setAdminActivities] = useState<AdminActivity[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckLoading, setAdminCheckLoading] = useState(true);
@@ -90,7 +115,6 @@ const EnhancedAdmin = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [newStatus, setNewStatus] = useState('');
-  const [statusNotes, setStatusNotes] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [stats, setStats] = useState<Stats>({
     totalApplications: 0,
@@ -98,30 +122,49 @@ const EnhancedAdmin = () => {
     approvedApplications: 0,
     rejectedApplications: 0,
     totalFundingRequested: 0,
-    totalEmailsSent: 0
+    totalEmailsSent: 0,
+    documentsUploaded: 0,
+    activeUsers: 0
   });
   const navigate = useNavigate();
 
-  // Check admin status only after auth loading is complete
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const applicationsSubscription = supabase
+      .channel('applications-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, (payload) => {
+        console.log('Applications change:', payload);
+        fetchAllData();
+      })
+      .subscribe();
+
+    const emailSubscription = supabase
+      .channel('email-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'email_notifications' }, (payload) => {
+        console.log('Email notifications change:', payload);
+        fetchEmailNotifications();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(applicationsSubscription);
+      supabase.removeChannel(emailSubscription);
+    };
+  }, [isAdmin]);
+
+  // Check admin status
   useEffect(() => {
     const checkAdminStatus = async () => {
-      console.log('Admin check - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'user:', user?.email);
-      
-      // Wait for auth loading to complete
-      if (isLoading) {
-        console.log('Auth still loading, waiting...');
-        return;
-      }
+      if (isLoading) return;
 
-      // If not authenticated after loading is complete, redirect
       if (!isAuthenticated || !user) {
-        console.log('Not authenticated, redirecting to auth');
         navigate('/auth?returnTo=/enhanced-admin', { replace: true });
         return;
       }
 
       try {
-        console.log('Checking admin status for user:', user.id);
         setAdminCheckLoading(true);
         
         const { data, error } = await supabase
@@ -132,10 +175,9 @@ const EnhancedAdmin = () => {
 
         if (error) {
           console.error('Admin check error:', error);
-          setIsAdmin(false);
           toast({
             title: "Error",
-            description: "Failed to check admin status. Please try again.",
+            description: "Failed to check admin status",
             variant: "destructive"
           });
           navigate('/', { replace: true });
@@ -143,22 +185,18 @@ const EnhancedAdmin = () => {
         }
 
         if (!data) {
-          console.log('User is not an admin');
-          setIsAdmin(false);
           toast({
             title: "Access Denied",
-            description: "You don't have admin privileges to access this page.",
+            description: "You don't have admin privileges",
             variant: "destructive"
           });
           navigate('/', { replace: true });
           return;
         }
 
-        console.log('User is an admin:', data);
         setIsAdmin(true);
       } catch (error) {
         console.error('Admin check error:', error);
-        setIsAdmin(false);
         navigate('/', { replace: true });
       } finally {
         setAdminCheckLoading(false);
@@ -178,41 +216,11 @@ const EnhancedAdmin = () => {
   const fetchAllData = async () => {
     setIsDataLoading(true);
     try {
-      // Fetch applications
-      const { data: appsData, error: appsError } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          user_balances(*),
-          wallet_signatures(*)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (appsError) throw appsError;
-
-      // Fetch email notifications
-      const { data: emailsData, error: emailsError } = await supabase
-        .from('email_notifications')
-        .select('*')
-        .order('sent_at', { ascending: false });
-
-      if (emailsError) throw emailsError;
-
-      setApplications(appsData || []);
-      setEmailNotifications(emailsData || []);
-
-      // Calculate stats
-      const apps = appsData || [];
-      const newStats = {
-        totalApplications: apps.length,
-        pendingApplications: apps.filter(app => app.status === 'pending' || app.status === 'under_review').length,
-        approvedApplications: apps.filter(app => app.status === 'approved').length,
-        rejectedApplications: apps.filter(app => app.status === 'rejected').length,
-        totalFundingRequested: apps.reduce((sum, app) => sum + app.funding_amount, 0),
-        totalEmailsSent: emailsData?.length || 0
-      };
-      setStats(newStats);
-
+      await Promise.all([
+        fetchApplications(),
+        fetchEmailNotifications(),
+        fetchAdminActivities()
+      ]);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast({
@@ -223,6 +231,70 @@ const EnhancedAdmin = () => {
     } finally {
       setIsDataLoading(false);
     }
+  };
+
+  const fetchApplications = async () => {
+    const { data: appsData, error: appsError } = await supabase
+      .from('applications')
+      .select(`
+        *,
+        user_balances(*),
+        wallet_signatures(*)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (appsError) throw appsError;
+
+    setApplications(appsData || []);
+    
+    // Calculate stats
+    const apps = appsData || [];
+    const documentsCount = apps.reduce((count, app) => {
+      let docs = 0;
+      if (app.id_document_path) docs++;
+      if (app.proof_of_address_path) docs++;
+      if (app.selfie_path) docs++;
+      return count + docs;
+    }, 0);
+
+    setStats(prev => ({
+      ...prev,
+      totalApplications: apps.length,
+      pendingApplications: apps.filter(app => app.status === 'pending' || app.status === 'under_review').length,
+      approvedApplications: apps.filter(app => app.status === 'approved').length,
+      rejectedApplications: apps.filter(app => app.status === 'rejected').length,
+      totalFundingRequested: apps.reduce((sum, app) => sum + app.funding_amount, 0),
+      documentsUploaded: documentsCount,
+      activeUsers: new Set(apps.map(app => app.email)).size
+    }));
+  };
+
+  const fetchEmailNotifications = async () => {
+    const { data: emailsData, error: emailsError } = await supabase
+      .from('email_notifications')
+      .select('*')
+      .order('sent_at', { ascending: false })
+      .limit(100);
+
+    if (emailsError) throw emailsError;
+
+    setEmailNotifications(emailsData || []);
+    setStats(prev => ({
+      ...prev,
+      totalEmailsSent: emailsData?.length || 0
+    }));
+  };
+
+  const fetchAdminActivities = async () => {
+    const { data: activitiesData, error: activitiesError } = await supabase
+      .from('admin_activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (activitiesError) throw activitiesError;
+
+    setAdminActivities(activitiesData || []);
   };
 
   const updateApplicationStatus = async () => {
@@ -242,10 +314,12 @@ const EnhancedAdmin = () => {
         description: `Application status changed to ${newStatus}. Email notification will be sent automatically.`
       });
 
+      // Process pending emails
+      await processEmailQueue();
+      
       fetchAllData();
       setSelectedApp(null);
       setNewStatus('');
-      setStatusNotes('');
 
     } catch (error: any) {
       console.error('Error updating status:', error);
@@ -256,6 +330,20 @@ const EnhancedAdmin = () => {
       });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const processEmailQueue = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: { action: 'process_queue' }
+      });
+
+      if (error) {
+        console.error('Email processing error:', error);
+      }
+    } catch (error) {
+      console.error('Email queue processing failed:', error);
     }
   };
 
@@ -279,6 +367,8 @@ const EnhancedAdmin = () => {
         description: `${type.replace('_', ' ')} email has been queued for sending`
       });
 
+      // Process the email queue
+      await processEmailQueue();
       fetchAllData();
     } catch (error: any) {
       toast({
@@ -303,7 +393,7 @@ const EnhancedAdmin = () => {
 
   const exportData = () => {
     const csvContent = [
-      ['Application Number', 'Name', 'Email', 'Status', 'Funding Amount', 'Created', 'Wallet Address'].join(','),
+      ['Application Number', 'Name', 'Email', 'Status', 'Funding Amount', 'Created', 'Wallet Address', 'Documents'].join(','),
       ...filteredApplications.map(app => [
         app.application_number,
         `${app.first_name} ${app.last_name}`,
@@ -311,7 +401,8 @@ const EnhancedAdmin = () => {
         app.status,
         app.funding_amount,
         new Date(app.created_at).toLocaleDateString(),
-        app.wallet_address
+        app.wallet_address,
+        `${app.id_document_path ? 'ID,' : ''}${app.proof_of_address_path ? 'Address,' : ''}${app.selfie_path ? 'Selfie' : ''}`.replace(/,$/, '')
       ].join(','))
     ].join('\n');
 
@@ -323,7 +414,7 @@ const EnhancedAdmin = () => {
     a.click();
   };
 
-  // Show loading while checking authentication or admin status
+  // Loading states
   if (isLoading || adminCheckLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-900">
@@ -338,7 +429,6 @@ const EnhancedAdmin = () => {
     );
   }
 
-  // If not admin, this component shouldn't render (redirect should have happened)
   if (!isAdmin) {
     return null;
   }
@@ -374,8 +464,8 @@ const EnhancedAdmin = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
+        {/* Enhanced Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6 mb-8">
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -447,14 +537,40 @@ const EnhancedAdmin = () => {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">Documents</p>
+                  <p className="text-2xl font-bold text-white">{stats.documentsUploaded}</p>
+                </div>
+                <FileText className="h-8 w-8 text-orange-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">Active Users</p>
+                  <p className="text-2xl font-bold text-white">{stats.activeUsers}</p>
+                </div>
+                <Users className="h-8 w-8 text-green-400" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content */}
         <Tabs defaultValue="applications" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
+          <TabsList className="grid w-full grid-cols-6 bg-slate-800/50">
             <TabsTrigger value="applications">Applications</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="emails">Email Logs</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
           
@@ -511,6 +627,7 @@ const EnhancedAdmin = () => {
                           <TableHead className="text-slate-300">Applicant</TableHead>
                           <TableHead className="text-slate-300">Email</TableHead>
                           <TableHead className="text-slate-300">Status</TableHead>
+                          <TableHead className="text-slate-300">Documents</TableHead>
                           <TableHead className="text-slate-300">Funding</TableHead>
                           <TableHead className="text-slate-300">Applied</TableHead>
                           <TableHead className="text-slate-300">Actions</TableHead>
@@ -533,6 +650,13 @@ const EnhancedAdmin = () => {
                                 {app.status.replace('_', ' ')}
                               </Badge>
                             </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {app.id_document_path && <Badge variant="outline" className="text-xs">ID</Badge>}
+                                {app.proof_of_address_path && <Badge variant="outline" className="text-xs">Address</Badge>}
+                                {app.selfie_path && <Badge variant="outline" className="text-xs">Selfie</Badge>}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-white">
                               ${app.funding_amount.toLocaleString()}
                             </TableCell>
@@ -540,91 +664,37 @@ const EnhancedAdmin = () => {
                               {new Date(app.created_at).toLocaleDateString()}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setSelectedApp(app)}
-                                      className="text-blue-400 hover:text-blue-300"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
-                                    <DialogHeader>
-                                      <DialogTitle className="text-white">
-                                        Application Details - {app.application_number}
-                                      </DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-4">
-                                      <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                          <Label className="text-slate-300">Applicant</Label>
-                                          <p className="text-white">{app.first_name} {app.last_name}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-slate-300">Email</Label>
-                                          <p className="text-white">{app.email}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-slate-300">Phone</Label>
-                                          <p className="text-white">{app.phone}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-slate-300">Funding Tier</Label>
-                                          <p className="text-white">{app.funding_tier}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-slate-300">Wallet Address</Label>
-                                          <p className="text-white font-mono text-sm">{app.wallet_address}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-slate-300">Verified Balances</Label>
-                                          <p className="text-white">{app.user_balances?.length || 0} tokens</p>
-                                        </div>
-                                      </div>
-                                      
-                                      <div className="space-y-2">
-                                        <Label className="text-slate-300">Update Status</Label>
-                                        <Select value={newStatus} onValueChange={setNewStatus}>
-                                          <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                                            <SelectValue placeholder="Select new status" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="pending">Pending</SelectItem>
-                                            <SelectItem value="under_review">Under Review</SelectItem>
-                                            <SelectItem value="documents_requested">Documents Requested</SelectItem>
-                                            <SelectItem value="approved">Approved</SelectItem>
-                                            <SelectItem value="rejected">Rejected</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-
-                                      <div className="flex space-x-2 pt-4">
-                                        <Button
-                                          onClick={updateApplicationStatus}
-                                          disabled={!newStatus || isUpdating}
-                                          className="bg-blue-600 hover:bg-blue-700"
-                                        >
-                                          {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                                          Update Status
-                                        </Button>
-                                        
-                                        <Button
-                                          variant="outline"
-                                          onClick={() => sendCustomEmail(app.id, app.email, app.application_number, 'review_in_progress')}
-                                          className="border-purple-600 text-purple-400"
-                                        >
-                                          <Mail className="h-4 w-4 mr-2" />
-                                          Send Review Email
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              </div>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedApp(app)}
+                                    className="text-blue-400 hover:text-blue-300"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="bg-slate-800 border-slate-700 max-w-4xl max-h-[90vh] overflow-y-auto">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-white">
+                                      Application Details - {app.application_number}
+                                    </DialogTitle>
+                                  </DialogHeader>
+                                  {selectedApp && (
+                                    <ApplicationDetails
+                                      application={selectedApp}
+                                      onStatusUpdate={(appId, status) => {
+                                        setNewStatus(status);
+                                        updateApplicationStatus();
+                                      }}
+                                      onSendEmail={(appId, email, appNumber, type) => 
+                                        sendCustomEmail(appId, email, appNumber, type)
+                                      }
+                                    />
+                                  )}
+                                </DialogContent>
+                              </Dialog>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -636,14 +706,31 @@ const EnhancedAdmin = () => {
             </Card>
           </TabsContent>
 
+          {/* Users Tab - Now using UserManagement component */}
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
+          </TabsContent>
+
           {/* Email Logs Tab */}
           <TabsContent value="emails" className="space-y-6">
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-white">Email Notification Logs</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Track all email notifications sent to applicants
-                </CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="text-white">Email Notification Logs</CardTitle>
+                    <CardDescription className="text-slate-400">
+                      Track all email notifications sent to applicants
+                    </CardDescription>
+                  </div>
+                  <Button
+                    onClick={processEmailQueue}
+                    variant="outline"
+                    className="border-blue-600 text-blue-400 hover:bg-blue-600/10"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Process Queue
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -658,7 +745,7 @@ const EnhancedAdmin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {emailNotifications.slice(0, 10).map((email) => (
+                      {emailNotifications.slice(0, 20).map((email) => (
                         <TableRow key={email.id} className="border-slate-700">
                           <TableCell className="text-white">{email.recipient_email}</TableCell>
                           <TableCell className="text-slate-300">
@@ -668,7 +755,7 @@ const EnhancedAdmin = () => {
                           </TableCell>
                           <TableCell className="text-slate-300">{email.subject}</TableCell>
                           <TableCell>
-                            <Badge variant={email.status === 'sent' ? 'default' : 'destructive'}>
+                            <Badge variant={email.status === 'sent' ? 'default' : email.status === 'pending' ? 'secondary' : 'destructive'}>
                               {email.status}
                             </Badge>
                           </TableCell>
@@ -684,33 +771,150 @@ const EnhancedAdmin = () => {
             </Card>
           </TabsContent>
 
-          {/* Other tabs content would go here */}
-          <TabsContent value="users" className="space-y-6">
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Application Status Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Pending</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-32 bg-slate-700 rounded-full h-2">
+                          <div 
+                            className="bg-yellow-400 h-2 rounded-full" 
+                            style={{ width: `${stats.totalApplications > 0 ? (stats.pendingApplications / stats.totalApplications) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="text-white text-sm">{stats.pendingApplications}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Approved</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-32 bg-slate-700 rounded-full h-2">
+                          <div 
+                            className="bg-green-400 h-2 rounded-full" 
+                            style={{ width: `${stats.totalApplications > 0 ? (stats.approvedApplications / stats.totalApplications) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="text-white text-sm">{stats.approvedApplications}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Rejected</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-32 bg-slate-700 rounded-full h-2">
+                          <div 
+                            className="bg-red-400 h-2 rounded-full" 
+                            style={{ width: `${stats.totalApplications > 0 ? (stats.rejectedApplications / stats.totalApplications) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="text-white text-sm">{stats.rejectedApplications}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Key Metrics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-slate-300">Approval Rate</span>
+                      <span className="text-white font-semibold">
+                        {stats.totalApplications > 0 
+                          ? ((stats.approvedApplications / (stats.approvedApplications + stats.rejectedApplications)) * 100).toFixed(1)
+                          : 0}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-300">Avg. Funding Amount</span>
+                      <span className="text-white font-semibold">
+                        ${stats.totalApplications > 0 
+                          ? (stats.totalFundingRequested / stats.totalApplications).toLocaleString(undefined, { maximumFractionDigits: 0 })
+                          : '0'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-300">Document Upload Rate</span>
+                      <span className="text-white font-semibold">
+                        {stats.totalApplications > 0 
+                          ? ((stats.documentsUploaded / (stats.totalApplications * 3)) * 100).toFixed(1)
+                          : 0}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-300">Email Success Rate</span>
+                      <span className="text-white font-semibold">
+                        {emailNotifications.length > 0 
+                          ? ((emailNotifications.filter(e => e.status === 'sent').length / emailNotifications.length) * 100).toFixed(1)
+                          : 0}%
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Activity Tab */}
+          <TabsContent value="activity" className="space-y-6">
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-white">User Management</CardTitle>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Admin Activity Log
+                </CardTitle>
                 <CardDescription className="text-slate-400">
-                  Manage user accounts and permissions
+                  Track all administrative actions and changes
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-300">User management features will be implemented here.</p>
+                <div className="space-y-4">
+                  {adminActivities.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-4 p-4 bg-slate-700/50 rounded-lg">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full mt-2" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-white font-medium">
+                            {activity.action.replace('_', ' ').toUpperCase()} - {activity.target_type}
+                          </p>
+                          <span className="text-slate-400 text-sm">
+                            {new Date(activity.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        {activity.details && (
+                          <p className="text-slate-300 text-sm mt-1">
+                            {activity.details.application_number && `Application: ${activity.details.application_number}`}
+                            {activity.details.old_status && activity.details.new_status && 
+                              ` | Status: ${activity.details.old_status} → ${activity.details.new_status}`
+                            }
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* Settings Tab - Now using SystemSettings component */}
           <TabsContent value="settings" className="space-y-6">
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white">System Settings</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Configure application settings and parameters
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-300">System settings will be implemented here.</p>
-              </CardContent>
-            </Card>
+            <SystemSettings />
           </TabsContent>
         </Tabs>
       </div>

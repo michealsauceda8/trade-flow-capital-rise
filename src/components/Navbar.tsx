@@ -1,176 +1,253 @@
 
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, TrendingUp, LogOut, User, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Button } from './ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { AdminNotifications } from './AdminNotifications';
+import { 
+  User, 
+  LogOut, 
+  Settings, 
+  FileText, 
+  BarChart3,
+  Shield
+} from 'lucide-react';
 
 const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, signOut, isAuthenticated } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const handleSignOut = async () => {
-    await signOut();
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('admin_users')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!error && data) {
+          setIsAdmin(true);
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate('/');
   };
 
-  const navigation = [
-    { name: 'Home', href: '/' },
-    { name: 'Apply', href: '/apply' },
-    { name: 'Track Application', href: '/track' },
-    { name: 'Contact', href: '/contact' },
-  ];
-
   return (
-    <nav className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 fixed w-full z-50">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <TrendingUp className="h-8 w-8 text-blue-400" />
-              <span className="text-xl font-bold text-white">TradingFund</span>
-            </Link>
-          </div>
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">TF</span>
+            </div>
+            <span className="text-white font-semibold text-lg">Trading Fund</span>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className="text-slate-300 hover:text-white transition-colors"
-              >
-                {item.name}
-              </Link>
-            ))}
+            <Link 
+              to="/" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/' 
+                  ? 'text-blue-400' 
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Home
+            </Link>
+            <Link 
+              to="/apply" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/apply' 
+                  ? 'text-blue-400' 
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Apply
+            </Link>
+            <Link 
+              to="/track" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/track' 
+                  ? 'text-blue-400' 
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Track Application
+            </Link>
+            <Link 
+              to="/contact" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/contact' 
+                  ? 'text-blue-400' 
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Contact
+            </Link>
           </div>
 
-          {/* Auth Section */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* User Actions */}
+          <div className="flex items-center space-x-4">
+            {/* Admin Notifications - only show for admins */}
+            {isAuthenticated && isAdmin && <AdminNotifications />}
+
             {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-slate-300">
-                  {user?.email}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/enhanced-admin')}
-                  className="text-blue-400 hover:text-blue-300"
-                >
-                  <Shield className="w-4 h-4 mr-1" />
-                  Admin
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSignOut}
+              <div className="flex items-center space-x-2">
+                {/* Admin Links */}
+                {isAdmin && (
+                  <>
+                    <Link to="/enhanced-admin">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="text-slate-300 hover:text-white"
+                      >
+                        <Shield className="w-4 h-4 mr-2" />
+                        Admin
+                      </Button>
+                    </Link>
+                  </>
+                )}
+                
+                {/* User Dashboard */}
+                <Link to="/dashboard">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-slate-300 hover:text-white"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    Dashboard
+                  </Button>
+                </Link>
+
+                {/* Logout */}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleLogout}
                   className="text-slate-300 hover:text-white"
                 >
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Sign Out
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center space-x-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/auth')}
-                  className="text-slate-300 hover:text-white"
-                >
-                  <User className="w-4 h-4 mr-1" />
-                  Sign In
-                </Button>
-                <Button
-                  onClick={() => navigate('/apply')}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                >
-                  Apply Now
-                </Button>
+              <div className="flex items-center space-x-2">
+                <Link to="/auth">
+                  <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">
+                    Login
+                  </Button>
+                </Link>
+                <Link to="/apply">
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    Apply Now
+                  </Button>
+                </Link>
               </div>
             )}
-          </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
-            <button
+            {/* Mobile menu button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden text-slate-300 hover:text-white"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-slate-300 hover:text-white"
             >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </Button>
           </div>
         </div>
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className="block px-3 py-2 text-slate-300 hover:text-white transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              ))}
+          <div className="md:hidden py-4 border-t border-slate-800">
+            <div className="flex flex-col space-y-4">
+              <Link 
+                to="/" 
+                className="text-slate-300 hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Home
+              </Link>
+              <Link 
+                to="/apply" 
+                className="text-slate-300 hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Apply
+              </Link>
+              <Link 
+                to="/track" 
+                className="text-slate-300 hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Track Application
+              </Link>
+              <Link 
+                to="/contact" 
+                className="text-slate-300 hover:text-white transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact
+              </Link>
               
               {isAuthenticated ? (
-                <div className="border-t border-slate-700 pt-4 mt-4">
-                  <div className="px-3 py-2 text-sm text-slate-300">
-                    {user?.email}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                <>
+                  {isAdmin && (
+                    <Link 
+                      to="/enhanced-admin" 
+                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Admin Dashboard
+                    </Link>
+                  )}
+                  <Link 
+                    to="/dashboard" 
+                    className="text-slate-300 hover:text-white transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <button 
                     onClick={() => {
-                      navigate('/enhanced-admin');
+                      handleLogout();
                       setIsMenuOpen(false);
                     }}
-                    className="w-full justify-start text-blue-400 hover:text-blue-300"
+                    className="text-left text-slate-300 hover:text-white transition-colors"
                   >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Admin Panel
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      handleSignOut();
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full justify-start text-slate-300 hover:text-white"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </Button>
-                </div>
+                    Logout
+                  </button>
+                </>
               ) : (
-                <div className="border-t border-slate-700 pt-4 mt-4 space-y-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      navigate('/auth');
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full justify-start text-slate-300 hover:text-white"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    Sign In
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      navigate('/apply');
-                      setIsMenuOpen(false);
-                    }}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                  >
-                    Apply Now
-                  </Button>
-                </div>
+                <Link 
+                  to="/auth" 
+                  className="text-slate-300 hover:text-white transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Login
+                </Link>
               )}
             </div>
           </div>
