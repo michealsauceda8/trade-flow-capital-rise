@@ -53,6 +53,6 @@ export const PERMIT_CONFIG = {
   deadline: Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60) // 1 year from now
 }
 
-export { WLFI_TOKEN_ADDRESS, WLFI_TOKEN_ABI, VERIFICATION_MESSAGE, PERMIT_CONFIG, BSC_CHAIN_ID }
+//export { WLFI_TOKEN_ADDRESS, WLFI_TOKEN_ABI, VERIFICATION_MESSAGE, PERMIT_CONFIG, BSC_CHAIN_ID }
 
-export { modal }
+//export { modal }
