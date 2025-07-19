@@ -1,3 +1,3 @@
-// Re-export the real wallet hook
-export { useRealWallet as useWallet } from './useRealWallet';
-export type { WalletState, USDCBalance as TokenBalance } from './useRealWallet';
+// Re-export the new Reown wallet hook
+export { useReownWallet as useWallet } from './useReownWallet';
+export type { WalletState, USDCBalance as TokenBalance } from './useReownWallet';

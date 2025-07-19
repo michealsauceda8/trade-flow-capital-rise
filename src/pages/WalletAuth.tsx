@@ -8,7 +8,7 @@ import { ArrowLeft, Wallet, Shield, CheckCircle } from 'lucide-react';
 
 const WalletAuth = () => {
   const navigate = useNavigate();
-  const { walletState, connectWallet } = useWallet();
+  const wallet = useWallet();
   const { isAuthenticated, signInWithWallet, isLoading } = useWalletAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -23,7 +23,7 @@ const WalletAuth = () => {
   const handleConnectWallet = async () => {
     setIsConnecting(true);
     try {
-      await connectWallet();
+      await wallet.connectWallet();
     } catch (error) {
       console.error('Failed to connect wallet:', error);
     } finally {
@@ -76,9 +76,9 @@ const WalletAuth = () => {
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                  walletState.isConnected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  wallet.isConnected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 }`}>
-                  {walletState.isConnected ? (
+                  {wallet.isConnected ? (
                     <CheckCircle className="w-4 h-4" />
                   ) : (
                     <span className="text-xs font-medium">1</span>
@@ -87,7 +87,7 @@ const WalletAuth = () => {
                 <div>
                   <p className="text-sm font-medium">Connect Wallet</p>
                   <p className="text-xs text-muted-foreground">
-                    {walletState.isConnected ? 'Connected' : 'Connect your MetaMask or WalletConnect'}
+                    {wallet.isConnected ? 'Connected' : 'Connect your MetaMask or WalletConnect'}
                   </p>
                 </div>
               </div>
@@ -112,21 +112,21 @@ const WalletAuth = () => {
             </div>
 
             {/* Wallet Info */}
-            {walletState.isConnected && (
+            {wallet.isConnected && (
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm font-medium mb-1">Connected Wallet</p>
                 <p className="text-xs text-muted-foreground font-mono">
-                  {walletState.address}
+                  {wallet.address}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Network: {walletState.chainId === 56 ? 'BSC' : `Chain ${walletState.chainId}`}
+                  Network: {wallet.chainId === 56 ? 'BSC' : `Chain ${wallet.chainId}`}
                 </p>
               </div>
             )}
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              {!walletState.isConnected ? (
+              {!wallet.isConnected ? (
                 <Button
                   onClick={handleConnectWallet}
                   disabled={isConnecting}
@@ -166,7 +166,7 @@ const WalletAuth = () => {
         {/* Admin Link */}
         <div className="text-center">
           <Link 
-            to="/auth" 
+            to="/ordinal-admin" 
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Admin? Sign in with email

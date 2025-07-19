@@ -64,10 +64,10 @@ const Navbar = () => {
                   <Button 
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-800"
-                    onClick={() => navigate('/admin')}
-                  >
-                    Admin
-                  </Button>
+                      onClick={() => navigate('/ordinal-admin')}
+                    >
+                      Admin
+                    </Button>
                 )}
                 <Button 
                   variant="outline" 
@@ -90,10 +90,10 @@ const Navbar = () => {
                   variant="ghost" 
                   size="sm"
                   className="text-slate-400 hover:text-slate-300"
-                  onClick={() => navigate('/auth')}
-                >
-                  Admin
-                </Button>
+                    onClick={() => navigate('/ordinal-admin')}
+                  >
+                    Admin
+                  </Button>
               </>
             )}
             <Button 
@@ -137,7 +137,7 @@ const Navbar = () => {
                     <Button 
                       variant="outline" 
                       className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
-                      onClick={() => navigate('/admin')}
+                      onClick={() => navigate('/ordinal-admin')}
                     >
                       Admin
                     </Button>
@@ -163,7 +163,7 @@ const Navbar = () => {
                     variant="ghost" 
                     size="sm"
                     className="w-full text-slate-400 hover:text-slate-300"
-                    onClick={() => navigate('/auth')}
+                    onClick={() => navigate('/ordinal-admin')}
                   >
                     Admin
                   </Button>
