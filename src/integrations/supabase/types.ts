@@ -177,6 +177,47 @@ export type Database = {
           },
         ]
       }
+      email_notifications: {
+        Row: {
+          application_id: string | null
+          content: string
+          id: string
+          notification_type: string
+          recipient_email: string
+          sent_at: string
+          status: string
+          subject: string
+        }
+        Insert: {
+          application_id?: string | null
+          content: string
+          id?: string
+          notification_type: string
+          recipient_email: string
+          sent_at?: string
+          status?: string
+          subject: string
+        }
+        Update: {
+          application_id?: string | null
+          content?: string
+          id?: string
+          notification_type?: string
+          recipient_email?: string
+          sent_at?: string
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_notifications_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_contracts: {
         Row: {
           chain_id: number
