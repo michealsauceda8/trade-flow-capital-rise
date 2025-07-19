@@ -105,7 +105,7 @@ const Apply = () => {
   // ];
   const steps = [
   { title: "KYC Verification", icon: FileText, completed: kycCompleted },
-  { title: "Wallet Connection", icon: DollarSign, completed: walletConnected },
+  { title: "Wallet Connection", icon: Shield, completed: walletConnected }, // Changed to Shield for distinction
   { title: "Funding Selection", icon: DollarSign, completed: false },
   { title: "Submit Application", icon: CheckCircle, completed: false }
 ];
@@ -244,7 +244,7 @@ const Apply = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-
+    
               {/* Step 1: KYC Verification */}
               {currentStep === 1 && (
                 <div className="space-y-6">
@@ -381,40 +381,49 @@ const Apply = () => {
     <h2 className="text-xl font-bold">Connect your wallet</h2>
     {!walletConnected ? (
       <>
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded"
+        <Button
           onClick={() => setShowWalletModal(true)}
+          className="bg-blue-600 text-white"
         >
           Connect Wallet
-        </button>
+        </Button>
         <ReownModal
           open={showWalletModal}
           onClose={() => setShowWalletModal(false)}
           onConnect={async (provider, account) => {
-            setWalletConnected(true);
-            setShowWalletModal(false);
-            // Save account if needed
+            try {
+              setWalletConnected(true);
+              setShowWalletModal(false);
+              // Save account if needed
+            } catch (error: any) {
+              toast({
+                title: "Wallet Connection Failed",
+                description: error?.message || "An error occurred while connecting your wallet.",
+                variant: "destructive"
+              });
+              setShowWalletModal(false);
+            }
           }}
         />
       </>
     ) : (
       <div>
         <p>Wallet connected: {account?.address}</p>
-        <button
-          className="px-4 py-2 bg-gray-600 text-white rounded"
+        <Button
           onClick={() => {
             disconnect();
             setWalletConnected(false);
           }}
+          className="bg-gray-600 text-white"
         >
           Disconnect
-        </button>
-        <button
-          className="px-4 py-2 bg-green-600 text-white rounded ml-4"
+        </Button>
+        <Button
           onClick={() => setCurrentStep(3)}
+          className="bg-green-600 text-white ml-4"
         >
           Continue
-        </button>
+        </Button>
       </div>
     )}
   </div>
@@ -472,7 +481,7 @@ const Apply = () => {
                   </div>
                 </div>
               )}
-
+   
               {/* Step 3: Submit Application */}
               {currentStep === 4 && (
                 <div className="space-y-6">
