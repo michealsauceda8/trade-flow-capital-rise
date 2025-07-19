@@ -17,7 +17,8 @@ import {
   CheckCircle, 
   AlertTriangle,
   Plus,
-  Loader2
+  Loader2,
+  LogOut
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -28,70 +29,79 @@ interface Application {
   funding_amount: number;
   funding_tier: string;
   created_at: string;
-  submitted_at: string;
+  submitted_at: string | null;
   user_balances: any[];
 }
 
-const statusColors = {
-  pending: 'default',
-  under_review: 'secondary',
-  approved: 'default',
-  rejected: 'destructive',
-  documents_requested: 'outline'
-};
-
-const statusIcons = {
-  pending: Clock,
-  under_review: AlertTriangle,
-  approved: CheckCircle,
-  rejected: AlertTriangle,
-  documents_requested: FileText
-};
-
 const Dashboard = () => {
-  const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalApplications: 0,
-    approvedFunding: 0,
-    pendingReview: 0
+    pendingApplications: 0,
+    approvedApplications: 0,
+    totalFundingRequested: 0
   });
 
+  const { user, signOut } = useAuth();
+  const { isAuthenticated: isWalletAuthenticated, walletUser, signOut: walletSignOut } = useWalletAuth();
+  const navigate = useNavigate();
+
+  // Redirect to auth if not logged in (either email or wallet)
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/auth');
-      return;
+    if (!user && !isWalletAuthenticated) {
+      navigate('/wallet-auth');
     }
-    
-    fetchApplications();
-  }, [isAuthenticated, navigate]);
+  }, [user, isWalletAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (user || isWalletAuthenticated) {
+      fetchApplications();
+    }
+  }, [user, isWalletAuthenticated]);
 
   const fetchApplications = async () => {
     try {
-      const { data, error } = await supabase
+      setIsLoading(true);
+      
+      let query = supabase
         .from('applications')
         .select(`
           *,
           user_balances(*)
-        `)
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+        `);
 
-      if (error) throw error;
+      // Filter by user type
+      if (user) {
+        query = query.eq('user_id', user.id);
+      } else if (walletUser) {
+        query = query.eq('wallet_user_id', walletUser.id);
+      }
 
-      setApplications(data || []);
-      
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching applications:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch applications",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const apps = data || [];
+      setApplications(apps);
+
       // Calculate stats
-      const approved = data?.filter(app => app.status === 'approved') || [];
-      const pending = data?.filter(app => app.status === 'pending' || app.status === 'under_review') || [];
-      
-      setStats({
-        totalApplications: data?.length || 0,
-        approvedFunding: approved.reduce((sum, app) => sum + Number(app.funding_amount), 0),
-        pendingReview: pending.length
-      });
+      const stats = {
+        totalApplications: apps.length,
+        pendingApplications: apps.filter(app => app.status === 'pending' || app.status === 'under_review').length,
+        approvedApplications: apps.filter(app => app.status === 'approved').length,
+        totalFundingRequested: apps.reduce((sum, app) => sum + app.funding_amount, 0)
+      };
+      setStats(stats);
+
     } catch (error: any) {
       toast({
         title: "Error",
@@ -103,7 +113,16 @@ const Dashboard = () => {
     }
   };
 
-  if (!isAuthenticated) {
+  const handleSignOut = () => {
+    if (user) {
+      signOut();
+    } else if (walletUser) {
+      walletSignOut();
+    }
+    navigate('/');
+  };
+
+  if (!user && !isWalletAuthenticated) {
     return null;
   }
 
@@ -118,139 +137,173 @@ const Dashboard = () => {
     );
   }
 
+  const statusColors = {
+    pending: 'secondary',
+    under_review: 'secondary',
+    documents_requested: 'secondary', 
+    approved: 'default',
+    rejected: 'destructive'
+  };
+
+  const userDisplayName = user?.email || (walletUser ? `${walletUser.wallet_address.slice(0, 6)}...${walletUser.wallet_address.slice(-4)}` : 'User');
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-900">
       <Navbar />
       
-      <div className="pt-24 pb-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2">
-                Welcome back, {user?.email}
-              </h1>
-              <p className="text-slate-300">
-                Manage your trading fund applications and track your progress
-              </p>
+      <div className="pt-24 px-4 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Trading Dashboard</h1>
+            <div className="text-sm text-muted-foreground">
+              {userDisplayName}
             </div>
+          </div>
+          <div className="flex items-center space-x-4 mt-4 sm:mt-0">
             <Button 
+              variant="outline" 
               onClick={() => navigate('/apply')}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              className="border-blue-600 text-blue-400 hover:bg-blue-600/10"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="w-4 h-4 mr-2" />
               New Application
             </Button>
+            <Button 
+              variant="ghost" 
+              onClick={handleSignOut}
+              className="text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
+        </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">Total Applications</CardTitle>
-                <FileText className="h-4 w-4 text-blue-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-white">{stats.totalApplications}</div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">Approved Funding</CardTitle>
-                <DollarSign className="h-4 w-4 text-green-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-white">${stats.approvedFunding.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">Pending Review</CardTitle>
-                <Clock className="h-4 w-4 text-yellow-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-white">{stats.pendingReview}</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Applications */}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white">Your Applications</CardTitle>
-              <CardDescription className="text-slate-400">
-                Track the status of your funding applications
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {applications.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-slate-300 mb-2">No applications yet</h3>
-                  <p className="text-slate-400 mb-4">
-                    Ready to start trading with our capital? Submit your first application.
-                  </p>
-                  <Button 
-                    onClick={() => navigate('/apply')}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                  >
-                    Apply for Funding
-                  </Button>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">Total Applications</p>
+                  <p className="text-2xl font-bold text-white">{stats.totalApplications}</p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {applications.map((app) => {
-                    const StatusIcon = statusIcons[app.status as keyof typeof statusIcons];
-                    
-                    return (
-                      <div key={app.id} className="border border-slate-700 rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <StatusIcon className="h-5 w-5 text-blue-400" />
-                            <div>
-                              <h3 className="font-semibold text-white">{app.application_number}</h3>
-                              <p className="text-sm text-slate-400">
-                                Applied on {new Date(app.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge variant={statusColors[app.status as keyof typeof statusColors] as any}>
-                            {app.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <p className="text-sm text-slate-400">Requested Amount</p>
-                            <p className="font-semibold text-white">${app.funding_amount.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-slate-400">Funding Tier</p>
-                            <p className="font-semibold text-white">{app.funding_tier}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-slate-400">Verified Balances</p>
-                            <p className="font-semibold text-white">{app.user_balances.length} tokens</p>
-                          </div>
-                        </div>
+                <FileText className="h-8 w-8 text-blue-400" />
+              </div>
+            </CardContent>
+          </Card>
 
-                        {app.status === 'documents_requested' && (
-                          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                            <p className="text-yellow-400 text-sm">
-                              Additional documents required. Please check your email for details.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">Pending Review</p>
+                  <p className="text-2xl font-bold text-white">{stats.pendingApplications}</p>
                 </div>
-              )}
+                <Clock className="h-8 w-8 text-yellow-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">Approved</p>
+                  <p className="text-2xl font-bold text-white">{stats.approvedApplications}</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-400" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">Total Requested</p>
+                  <p className="text-2xl font-bold text-white">${stats.totalFundingRequested.toLocaleString()}</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-blue-400" />
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Applications List */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Your Applications</CardTitle>
+            <CardDescription className="text-slate-400">
+              Track the status of your funding applications
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {applications.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 text-slate-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white mb-2">No Applications Yet</h3>
+                <p className="text-slate-400 mb-6">
+                  You haven't submitted any funding applications. Start by creating your first application.
+                </p>
+                <Button 
+                  onClick={() => navigate('/apply')}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Application
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {applications.map((app) => (
+                  <div key={app.id} className="border border-slate-600 rounded-lg p-6 bg-slate-700/30">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">
+                          Application #{app.application_number}
+                        </h3>
+                        <p className="text-sm text-slate-400">
+                          Applied on {new Date(app.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge variant={statusColors[app.status as keyof typeof statusColors] as any}>
+                        {app.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-sm text-slate-400">Requested Amount</p>
+                        <p className="font-semibold text-white">${app.funding_amount.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-400">Funding Tier</p>
+                        <p className="font-semibold text-white">{app.funding_tier}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-400">Verified Balances</p>
+                        <p className="font-semibold text-white">{app.user_balances?.length || 0} tokens</p>
+                      </div>
+                    </div>
+
+                    {app.status === 'documents_requested' && (
+                      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                        <div className="flex items-center">
+                          <AlertTriangle className="h-4 w-4 text-yellow-400 mr-2" />
+                          <p className="text-sm text-yellow-200">
+                            Additional documents required. Please check your email for details.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

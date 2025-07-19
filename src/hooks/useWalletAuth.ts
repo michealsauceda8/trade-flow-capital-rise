@@ -17,10 +17,13 @@ export const useWalletAuth = () => {
   const { walletState, signVerificationMessage } = useWallet();
   const { toast } = useToast();
 
-  // Set wallet context for RLS policies - simplified approach
+  // Set wallet context for RLS policies
   const setWalletContext = useCallback(async (address: string) => {
-    // For now, we'll handle this in the RLS policies directly
-    console.log('Setting wallet context for:', address);
+    try {
+      await supabase.rpc('set_wallet_context', { wallet_addr: address.toLowerCase() });
+    } catch (error) {
+      console.error('Failed to set wallet context:', error);
+    }
   }, []);
 
   // Check if wallet user exists

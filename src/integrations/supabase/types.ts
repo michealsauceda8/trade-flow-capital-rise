@@ -351,7 +351,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      set_wallet_context: {
+        Args: { wallet_addr: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
