@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { FileUpload } from '@/components/FileUpload';
+import { ReownModal, useReown } from '@reown/appkit';
 
 // const Apply = () => {
 //   const [currentStep, setCurrentStep] = useState(1);
@@ -49,6 +50,9 @@ const Apply = () => {
   const [kycCompleted, setKycCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [targetAmount, setTargetAmount] = useState(10000);
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const { account, connect, disconnect } = useReown();
   const [uploadedFiles, setUploadedFiles] = useState({
     idDocument: { path: '', url: '' },
     proofOfAddress: { path: '', url: '' },
@@ -94,12 +98,17 @@ const Apply = () => {
     tradingExperience: 'intermediate'
   });
 
+  // const steps = [
+  //   { title: "KYC Verification", icon: FileText, completed: kycCompleted },
+  //   { title: "Funding Selection", icon: DollarSign, completed: false },
+  //   { title: "Submit Application", icon: CheckCircle, completed: false }
+  // ];
   const steps = [
-    { title: "KYC Verification", icon: FileText, completed: kycCompleted },
-    { title: "Funding Selection", icon: DollarSign, completed: false },
-    { title: "Submit Application", icon: CheckCircle, completed: false }
-  ];
-
+  { title: "KYC Verification", icon: FileText, completed: kycCompleted },
+  { title: "Wallet Connection", icon: DollarSign, completed: walletConnected },
+  { title: "Funding Selection", icon: DollarSign, completed: false },
+  { title: "Submit Application", icon: CheckCircle, completed: false }
+];
   const handleKycSubmit = () => {
     // Validate required fields
     if (!kycData.firstName || !kycData.lastName || !kycData.email || !kycData.phone || 
@@ -367,9 +376,51 @@ const Apply = () => {
                   </Button>
                 </div>
               )}
-
-              {/* Step 2: Funding Selection */}
               {currentStep === 2 && (
+  <div className="flex flex-col items-center gap-4">
+    <h2 className="text-xl font-bold">Connect your wallet</h2>
+    {!walletConnected ? (
+      <>
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+          onClick={() => setShowWalletModal(true)}
+        >
+          Connect Wallet
+        </button>
+        <ReownModal
+          open={showWalletModal}
+          onClose={() => setShowWalletModal(false)}
+          onConnect={async (provider, account) => {
+            setWalletConnected(true);
+            setShowWalletModal(false);
+            // Save account if needed
+          }}
+        />
+      </>
+    ) : (
+      <div>
+        <p>Wallet connected: {account?.address}</p>
+        <button
+          className="px-4 py-2 bg-gray-600 text-white rounded"
+          onClick={() => {
+            disconnect();
+            setWalletConnected(false);
+          }}
+        >
+          Disconnect
+        </button>
+        <button
+          className="px-4 py-2 bg-green-600 text-white rounded ml-4"
+          onClick={() => setCurrentStep(3)}
+        >
+          Continue
+        </button>
+      </div>
+    )}
+  </div>
+)}
+              {/* Step 2: Funding Selection */}
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
@@ -423,7 +474,7 @@ const Apply = () => {
               )}
 
               {/* Step 3: Submit Application */}
-              {currentStep === 3 && (
+              {currentStep === 4 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
