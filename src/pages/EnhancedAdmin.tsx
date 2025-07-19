@@ -105,12 +105,16 @@ const EnhancedAdmin = () => {
   // Check admin status
   useEffect(() => {
     const checkAdminStatus = async () => {
+      console.log('Admin check - isAuthenticated:', isAuthenticated, 'user:', user?.email);
+      
       if (!isAuthenticated || !user) {
+        console.log('Not authenticated, redirecting to auth');
         navigate('/auth?returnTo=/enhanced-admin', { replace: true });
         return;
       }
 
       try {
+        console.log('Checking admin status for user:', user.id);
         const { data, error } = await supabase
           .from('admin_users')
           .select('*')
