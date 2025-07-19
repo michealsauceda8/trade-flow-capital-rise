@@ -10,6 +10,7 @@ import Terms from "./pages/Terms";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
+import WalletAuth from "./pages/WalletAuth";
 import Admin from "./pages/Admin";
 import ApplicationTracking from "./pages/ApplicationTracking";
 import Dashboard from "./pages/Dashboard";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/terms" element={<Terms />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/wallet-auth" element={<WalletAuth />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/track" element={<ApplicationTracking />} />

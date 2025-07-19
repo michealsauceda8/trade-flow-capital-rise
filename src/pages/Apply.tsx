@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 import { useRealWallet } from '@/hooks/useRealWallet';
 import { useAuth } from '@/hooks/useAuth';
+import { useWalletAuth } from '@/hooks/useWalletAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -19,14 +20,15 @@ const Apply = () => {
   const [targetAmount, setTargetAmount] = useState(10000);
   
   const { walletState, usdcBalances, isConnecting, connectWallet, signVerificationMessage, createUSDCPermits, disconnect } = useRealWallet();
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
+  const { isAuthenticated: isWalletAuthenticated, walletUser } = useWalletAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Check authentication and terms agreement
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/auth?redirect=apply');
+    if (!user && !isWalletAuthenticated) {
+      navigate('/wallet-auth');
       return;
     }
 
@@ -40,7 +42,7 @@ const Apply = () => {
       navigate('/terms');
       return;
     }
-  }, [isAuthenticated, navigate, toast]);
+  }, [user, isWalletAuthenticated, navigate, toast]);
   const [kycData, setKycData] = useState({
     firstName: '',
     lastName: '',
@@ -129,7 +131,7 @@ const Apply = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmitApplication = async () => {
-    if (!isAuthenticated || !user) {
+    if (!user && !isWalletAuthenticated) {
       toast({
         title: "Authentication Required",
         description: "Please sign in to submit your application.",

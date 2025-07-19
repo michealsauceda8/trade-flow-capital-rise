@@ -78,13 +78,23 @@ const Navbar = () => {
                 </Button>
               </>
             ) : (
-              <Button 
-                variant="outline" 
-                className="border-slate-600 text-slate-300 hover:bg-slate-800"
-                onClick={() => navigate('/auth')}
-              >
-                Login
-              </Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                  onClick={() => navigate('/wallet-auth')}
+                >
+                  Sign In
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-slate-400 hover:text-slate-300"
+                  onClick={() => navigate('/auth')}
+                >
+                  Admin
+                </Button>
+              </>
             )}
             <Button 
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6"
@@ -141,13 +151,23 @@ const Navbar = () => {
                   </Button>
                 </>
               ) : (
-                <Button 
-                  variant="outline" 
-                  className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
-                  onClick={() => navigate('/auth')}
-                >
-                  Login
-                </Button>
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+                    onClick={() => navigate('/wallet-auth')}
+                  >
+                    Sign In
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full text-slate-400 hover:text-slate-300"
+                    onClick={() => navigate('/auth')}
+                  >
+                    Admin
+                  </Button>
+                </>
               )}
               <Button 
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"

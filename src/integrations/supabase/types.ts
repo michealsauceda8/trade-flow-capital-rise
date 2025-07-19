@@ -107,6 +107,7 @@ export type Database = {
           updated_at: string
           user_id: string | null
           wallet_address: string
+          wallet_user_id: string | null
         }
         Insert: {
           address: string
@@ -135,6 +136,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           wallet_address: string
+          wallet_user_id?: string | null
         }
         Update: {
           address?: string
@@ -163,8 +165,17 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           wallet_address?: string
+          wallet_user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "applications_wallet_user_id_fkey"
+            columns: ["wallet_user_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       token_contracts: {
         Row: {
@@ -298,6 +309,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wallet_users: {
+        Row: {
+          chain_id: number
+          created_at: string
+          id: string
+          last_login: string | null
+          message: string
+          signature: string
+          updated_at: string
+          verified_at: string
+          wallet_address: string
+        }
+        Insert: {
+          chain_id: number
+          created_at?: string
+          id?: string
+          last_login?: string | null
+          message: string
+          signature: string
+          updated_at?: string
+          verified_at?: string
+          wallet_address: string
+        }
+        Update: {
+          chain_id?: number
+          created_at?: string
+          id?: string
+          last_login?: string | null
+          message?: string
+          signature?: string
+          updated_at?: string
+          verified_at?: string
+          wallet_address?: string
+        }
+        Relationships: []
       }
     }
     Views: {
