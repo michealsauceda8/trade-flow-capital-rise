@@ -106,7 +106,7 @@ const EnhancedAdmin = () => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!isAuthenticated || !user) {
-        navigate('/auth');
+        navigate('/auth', { replace: true });
         return;
       }
 
@@ -115,23 +115,36 @@ const EnhancedAdmin = () => {
           .from('admin_users')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error || !data) {
+        if (error) {
+          console.error('Admin check error:', error);
+          setIsAdmin(false);
+          toast({
+            title: "Error",
+            description: "Failed to check admin status. Please try again.",
+            variant: "destructive"
+          });
+          navigate('/', { replace: true });
+          return;
+        }
+
+        if (!data) {
           setIsAdmin(false);
           toast({
             title: "Access Denied",
             description: "You don't have admin privileges to access this page.",
             variant: "destructive"
           });
-          navigate('/');
+          navigate('/', { replace: true });
           return;
         }
 
         setIsAdmin(true);
       } catch (error) {
         console.error('Admin check error:', error);
-        navigate('/');
+        setIsAdmin(false);
+        navigate('/', { replace: true });
       }
     };
 
