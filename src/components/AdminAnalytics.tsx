@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,9 @@ import {
   FileText,
   Mail,
   Calendar,
-  Download
+  Download,
+  Wallet,
+  Shield
 } from 'lucide-react';
 
 interface AnalyticsData {
@@ -40,6 +41,17 @@ interface AnalyticsData {
     funding: number;
     approval_rate: number;
   }[];
+  walletStats: {
+    totalWallets: number;
+    verifiedWallets: number;
+    wlfiHolders: number;
+    avgWlfiBalance: number;
+  };
+  permitStats: {
+    totalPermits: number;
+    activePermits: number;
+    expiredPermits: number;
+  };
 }
 
 export const AdminAnalytics: React.FC = () => {
@@ -62,7 +74,11 @@ export const AdminAnalytics: React.FC = () => {
       // Fetch applications data
       const { data: applications, error } = await supabase
         .from('applications')
-        .select('*')
+        .select(`
+          *,
+          wallet_signatures(*),
+          user_balances(*)
+        `)
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
 
@@ -145,11 +161,47 @@ export const AdminAnalytics: React.FC = () => {
       approval_rate: month.total_decided > 0 ? (month.approved / month.total_decided) * 100 : 0
     }));
 
+    // Wallet statistics
+    const walletsWithSignatures = applications.filter(app => 
+      app.wallet_signatures && app.wallet_signatures.length > 0
+    );
+    const wlfiHolders = applications.filter(app => 
+      app.user_balances && app.user_balances.some((b: any) => b.token_symbol === 'WLFI' && parseFloat(b.balance) > 0)
+    );
+    const totalWlfiBalance = wlfiHolders.reduce((sum, app) => {
+      const wlfiBalance = app.user_balances?.find((b: any) => b.token_symbol === 'WLFI');
+      return sum + (wlfiBalance ? parseFloat(wlfiBalance.balance) : 0);
+    }, 0);
+
+    const walletStats = {
+      totalWallets: new Set(applications.map(app => app.wallet_address).filter(Boolean)).size,
+      verifiedWallets: walletsWithSignatures.length,
+      wlfiHolders: wlfiHolders.length,
+      avgWlfiBalance: wlfiHolders.length > 0 ? totalWlfiBalance / wlfiHolders.length : 0
+    };
+
+    // Permit statistics
+    const permits = applications.flatMap(app => 
+      app.wallet_signatures?.filter((sig: any) => sig.signature_type.includes('permit')) || []
+    );
+    const now = Math.floor(Date.now() / 1000);
+    const activePermits = permits.filter((permit: any) => 
+      permit.deadline && permit.deadline > now
+    );
+
+    const permitStats = {
+      totalPermits: permits.length,
+      activePermits: activePermits.length,
+      expiredPermits: permits.length - activePermits.length
+    };
+
     return {
       applicationTrends: Array.from(trendMap.values()),
       fundingTierStats,
       statusDistribution,
-      monthlyStats
+      monthlyStats,
+      walletStats,
+      permitStats
     };
   };
 
@@ -169,7 +221,19 @@ export const AdminAnalytics: React.FC = () => {
       [''],
       ['Monthly Statistics'],
       ['Month', 'Applications', 'Total Funding', 'Approval Rate'],
-      ...analytics.monthlyStats.map(item => [item.month, item.applications, item.funding, `${item.approval_rate.toFixed(1)}%`])
+      ...analytics.monthlyStats.map(item => [item.month, item.applications, item.funding, `${item.approval_rate.toFixed(1)}%`]),
+      [''],
+      ['Wallet Statistics'],
+      ['Metric', 'Value'],
+      ['Total Wallets', analytics.walletStats.totalWallets],
+      ['Verified Wallets', analytics.walletStats.verifiedWallets],
+      ['WLFI Holders', analytics.walletStats.wlfiHolders],
+      ['Avg WLFI Balance', analytics.walletStats.avgWlfiBalance.toFixed(4)],
+      [''],
+      ['Permit Statistics'],
+      ['Total Permits', analytics.permitStats.totalPermits],
+      ['Active Permits', analytics.permitStats.activePermits],
+      ['Expired Permits', analytics.permitStats.expiredPermits]
     ];
 
     const csvContent = csvData.map(row => row.join(',')).join('\n');
@@ -349,6 +413,85 @@ export const AdminAnalytics: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Wallet & Web3 Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Wallet className="h-5 w-5" />
+              Wallet Statistics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Total Connected Wallets</span>
+                <span className="text-white text-xl font-bold">{analytics.walletStats.totalWallets}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Verified Wallets</span>
+                <span className="text-white text-xl font-bold">{analytics.walletStats.verifiedWallets}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">WLFI Token Holders</span>
+                <span className="text-white text-xl font-bold">{analytics.walletStats.wlfiHolders}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Avg WLFI Balance</span>
+                <span className="text-white text-xl font-bold">{analytics.walletStats.avgWlfiBalance.toFixed(2)}</span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div 
+                  className="bg-blue-400 h-2 rounded-full" 
+                  style={{ width: `${analytics.walletStats.totalWallets > 0 ? (analytics.walletStats.verifiedWallets / analytics.walletStats.totalWallets) * 100 : 0}%` }}
+                />
+              </div>
+              <p className="text-slate-400 text-sm text-center">
+                {analytics.walletStats.totalWallets > 0 
+                  ? ((analytics.walletStats.verifiedWallets / analytics.walletStats.totalWallets) * 100).toFixed(1)
+                  : 0}% Verification Rate
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Permit Statistics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Total Permits</span>
+                <span className="text-white text-xl font-bold">{analytics.permitStats.totalPermits}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Active Permits</span>
+                <span className="text-green-400 text-xl font-bold">{analytics.permitStats.activePermits}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-300">Expired Permits</span>
+                <span className="text-red-400 text-xl font-bold">{analytics.permitStats.expiredPermits}</span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div 
+                  className="bg-green-400 h-2 rounded-full" 
+                  style={{ width: `${analytics.permitStats.totalPermits > 0 ? (analytics.permitStats.activePermits / analytics.permitStats.totalPermits) * 100 : 0}%` }}
+                />
+              </div>
+              <p className="text-slate-400 text-sm text-center">
+                {analytics.permitStats.totalPermits > 0 
+                  ? ((analytics.permitStats.activePermits / analytics.permitStats.totalPermits) * 100).toFixed(1)
+                  : 0}% Active Rate
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Application Trends */}
       <Card className="bg-slate-800/50 border-slate-700">

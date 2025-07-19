@@ -15,7 +15,10 @@ import {
   AlertTriangle,
   Plus,
   Loader2,
-  LogOut
+  LogOut,
+  Wallet,
+  Shield,
+  Key
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -28,6 +31,7 @@ interface Application {
   created_at: string;
   submitted_at: string | null;
   user_balances: any[];
+  wallet_signatures: any[];
 }
 
 const Dashboard = () => {
@@ -274,7 +278,7 @@ const Dashboard = () => {
                       </Badge>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                       <div>
                         <p className="text-sm text-slate-400">Requested Amount</p>
                         <p className="font-semibold text-white">${app.funding_amount.toLocaleString()}</p>
@@ -284,10 +288,60 @@ const Dashboard = () => {
                         <p className="font-semibold text-white">{app.funding_tier}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-slate-400">Verified Balances</p>
-                        <p className="font-semibold text-white">{app.user_balances?.length || 0} tokens</p>
+                        <p className="text-sm text-slate-400">Wallet Status</p>
+                        <div className="flex items-center gap-2">
+                          {app.wallet_signatures?.some((sig: any) => sig.signature_type === 'verification') ? (
+                            <>
+                              <Shield className="h-4 w-4 text-green-400" />
+                              <span className="text-green-400 text-sm">Verified</span>
+                            </>
+                          ) : (
+                            <>
+                              <Shield className="h-4 w-4 text-slate-400" />
+                              <span className="text-slate-400 text-sm">Not Verified</span>
+                            </>
+                          )}
+                        </div>
+                       </div>
+                       <div>
+                         <p className="text-sm text-slate-400">WLFI Balance</p>
+                         <p className="font-semibold text-white">
+                           {app.user_balances?.find((b: any) => b.token_symbol === 'WLFI')?.balance 
+                             ? `${parseFloat(app.user_balances.find((b: any) => b.token_symbol === 'WLFI').balance).toFixed(4)} WLFI`
+                             : 'No balance'
+                           }
+                         </p>
+                       </div>
+                     </div>
+
+                     {/* Wallet Information */}
+                     {app.wallet_address && (
+                       <div className="bg-slate-600/30 rounded-lg p-4 mb-4">
+                         <div className="flex items-center gap-2 mb-2">
+                           <Wallet className="h-4 w-4 text-blue-400" />
+                           <span className="text-white font-medium">Connected Wallet</span>
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                           <div>
+                             <span className="text-slate-400">Address:</span>
+                             <p className="text-white font-mono">{app.wallet_address.slice(0, 8)}...{app.wallet_address.slice(-6)}</p>
+                           </div>
+                           <div>
+                             <span className="text-slate-400">Network:</span>
+                             <p className="text-white">{app.chain_id === 56 ? 'BSC Mainnet' : `Chain ${app.chain_id}`}</p>
+                           </div>
+                           <div>
+                             <span className="text-slate-400">Permits:</span>
+                             <div className="flex items-center gap-1">
+                               <span className="text-white">{app.wallet_signatures?.filter((sig: any) => sig.signature_type.includes('permit')).length || 0}</span>
+                               {app.wallet_signatures?.some((sig: any) => sig.signature_type.includes('permit')) && (
+                                 <Key className="h-3 w-3 text-yellow-400" />
+                               )}
+                             </div>
+                           </div>
+                         </div>
                       </div>
-                    </div>
+                     )}
 
                     {app.status === 'documents_requested' && (
                       <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">

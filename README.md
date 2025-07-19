@@ -59,6 +59,9 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Reown AppKit (Web3 wallet connection)
+- Ethers.js (Web3 interactions)
+- Supabase (Backend and database)
 
 ## How can I deploy this project?
 

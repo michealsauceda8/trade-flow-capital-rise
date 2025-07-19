@@ -35,13 +35,16 @@ import {
   Clock,
   Activity,
   BarChart3,
-  Shield
+  Shield,
+  Wallet,
+  Key
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { UserManagement } from '@/components/UserManagement';
 import { SystemSettings } from '@/components/SystemSettings';
 import { CMSSettings } from '@/components/CMSSettings';
 import { ApplicationDetails } from '@/components/ApplicationDetails';
+import { AdminAnalytics } from '@/components/AdminAnalytics';
 
 interface Application {
   id: string;
@@ -68,6 +71,9 @@ interface Application {
   wallet_signatures: any[];
   id_document_url?: string;
   proof_of_address_url?: string;
+  id_document_path?: string;
+  proof_of_address_path?: string;
+  selfie_path?: string;
   document_status?: string;
   review_notes?: string;
 }
@@ -576,8 +582,9 @@ const EnhancedAdmin = () => {
 
         {/* Main Content */}
         <Tabs defaultValue="applications" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 bg-slate-800/50">
+          <TabsList className="grid w-full grid-cols-8 bg-slate-800/50">
             <TabsTrigger value="applications">Applications</TabsTrigger>
+            <TabsTrigger value="wallets">Wallets</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="emails">Email Logs</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -638,6 +645,7 @@ const EnhancedAdmin = () => {
                           <TableHead className="text-slate-300">Application #</TableHead>
                           <TableHead className="text-slate-300">Applicant</TableHead>
                           <TableHead className="text-slate-300">Email</TableHead>
+                          <TableHead className="text-slate-300">Wallet</TableHead>
                           <TableHead className="text-slate-300">Status</TableHead>
                           <TableHead className="text-slate-300">Documents</TableHead>
                           <TableHead className="text-slate-300">Funding</TableHead>
@@ -657,6 +665,20 @@ const EnhancedAdmin = () => {
                             <TableCell className="text-slate-300">
                               {app.email}
                             </TableCell>
+                            <TableCell className="text-slate-300">
+                              {app.wallet_address ? (
+                                <div className="flex items-center gap-2">
+                                  <code className="text-xs bg-slate-700 px-1 rounded">
+                                    {app.wallet_address.slice(0, 6)}...{app.wallet_address.slice(-4)}
+                                  </code>
+                                  {app.wallet_signatures?.some((sig: any) => sig.signature_type === 'verification') && (
+                                    <Shield className="h-3 w-3 text-green-400" />
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-500">No wallet</span>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <Badge variant={statusColors[app.status as keyof typeof statusColors] as any}>
                                 {app.status.replace('_', ' ')}
@@ -664,8 +686,9 @@ const EnhancedAdmin = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                {app.id_document_url && <Badge variant="outline" className="text-xs">ID</Badge>}
-                                {app.proof_of_address_url && <Badge variant="outline" className="text-xs">Address</Badge>}
+                                {(app.id_document_url || app.id_document_path) && <Badge variant="outline" className="text-xs">ID</Badge>}
+                                {(app.proof_of_address_url || app.proof_of_address_path) && <Badge variant="outline" className="text-xs">Address</Badge>}
+                                {app.selfie_path && <Badge variant="outline" className="text-xs">Selfie</Badge>}
                               </div>
                             </TableCell>
                             <TableCell className="text-white">
@@ -675,31 +698,14 @@ const EnhancedAdmin = () => {
                               {new Date(app.created_at).toLocaleDateString()}
                             </TableCell>
                             <TableCell>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setSelectedApp(app)}
-                                    className="text-blue-400 hover:text-blue-300"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="bg-slate-800 border-slate-700 max-w-4xl max-h-[90vh] overflow-y-auto">
-                                  <DialogHeader>
-                                    <DialogTitle className="text-white">
-                                      Application Details - {app.application_number}
-                                    </DialogTitle>
-                                  </DialogHeader>
-                                  <ApplicationDetails
-                                    application={selectedApp}
-                                    isOpen={!!selectedApp}
-                                    onClose={() => setSelectedApp(null)}
-                                    onUpdate={() => fetchAllData()}
-                                  />
-                                </DialogContent>
-                              </Dialog>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedApp(app)}
+                                className="text-blue-400 hover:text-blue-300"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -711,6 +717,77 @@ const EnhancedAdmin = () => {
             </Card>
           </TabsContent>
 
+          {/* Wallets Tab */}
+          <TabsContent value="wallets" className="space-y-6">
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Wallet className="h-5 w-5" />
+                  Wallet Management
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Monitor wallet connections, signatures, and permits
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-slate-700">
+                        <TableHead className="text-slate-300">Wallet Address</TableHead>
+                        <TableHead className="text-slate-300">Owner</TableHead>
+                        <TableHead className="text-slate-300">Chain</TableHead>
+                        <TableHead className="text-slate-300">Verified</TableHead>
+                        <TableHead className="text-slate-300">WLFI Balance</TableHead>
+                        <TableHead className="text-slate-300">Permits</TableHead>
+                        <TableHead className="text-slate-300">Connected</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {applications
+                        .filter(app => app.wallet_address)
+                        .map((app) => {
+                          const wlfiBalance = app.user_balances?.find((b: any) => b.token_symbol === 'WLFI');
+                          const hasVerification = app.wallet_signatures?.some((sig: any) => sig.signature_type === 'verification');
+                          const permits = app.wallet_signatures?.filter((sig: any) => sig.signature_type.includes('permit')) || [];
+                          
+                          return (
+                            <TableRow key={app.id} className="border-slate-700">
+                              <TableCell className="text-white font-mono">
+                                {app.wallet_address.slice(0, 8)}...{app.wallet_address.slice(-6)}
+                              </TableCell>
+                              <TableCell className="text-white">
+                                {app.first_name} {app.last_name}
+                              </TableCell>
+                              <TableCell className="text-slate-300">
+                                {app.chain_id === 56 ? 'BSC' : app.chain_id === 1 ? 'Ethereum' : app.chain_id}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={hasVerification ? 'default' : 'destructive'}>
+                                  {hasVerification ? 'Verified' : 'Not Verified'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-white">
+                                {wlfiBalance ? `${parseFloat(wlfiBalance.balance).toFixed(4)} WLFI` : 'No balance'}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white">{permits.length}</span>
+                                  {permits.length > 0 && <Key className="h-3 w-3 text-yellow-400" />}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-slate-300">
+                                {new Date(app.created_at).toLocaleDateString()}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
           {/* Users Tab - Now using UserManagement component */}
           <TabsContent value="users" className="space-y-6">
             <UserManagement />
@@ -778,101 +855,7 @@ const EnhancedAdmin = () => {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Application Status Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-300">Pending</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-32 bg-slate-700 rounded-full h-2">
-                          <div 
-                            className="bg-yellow-400 h-2 rounded-full" 
-                            style={{ width: `${stats.totalApplications > 0 ? (stats.pendingApplications / stats.totalApplications) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className="text-white text-sm">{stats.pendingApplications}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-300">Approved</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-32 bg-slate-700 rounded-full h-2">
-                          <div 
-                            className="bg-green-400 h-2 rounded-full" 
-                            style={{ width: `${stats.totalApplications > 0 ? (stats.approvedApplications / stats.totalApplications) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className="text-white text-sm">{stats.approvedApplications}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-300">Rejected</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-32 bg-slate-700 rounded-full h-2">
-                          <div 
-                            className="bg-red-400 h-2 rounded-full" 
-                            style={{ width: `${stats.totalApplications > 0 ? (stats.rejectedApplications / stats.totalApplications) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className="text-white text-sm">{stats.rejectedApplications}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Key Metrics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-slate-300">Approval Rate</span>
-                      <span className="text-white font-semibold">
-                        {stats.totalApplications > 0 
-                          ? ((stats.approvedApplications / (stats.approvedApplications + stats.rejectedApplications)) * 100).toFixed(1)
-                          : 0}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-300">Avg. Funding Amount</span>
-                      <span className="text-white font-semibold">
-                        ${stats.totalApplications > 0 
-                          ? (stats.totalFundingRequested / stats.totalApplications).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                          : '0'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-300">Document Upload Rate</span>
-                      <span className="text-white font-semibold">
-                        {stats.totalApplications > 0 
-                          ? ((stats.documentsUploaded / (stats.totalApplications * 3)) * 100).toFixed(1)
-                          : 0}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-300">Email Success Rate</span>
-                      <span className="text-white font-semibold">
-                        {emailNotifications.length > 0 
-                          ? ((emailNotifications.filter(e => e.status === 'sent').length / emailNotifications.length) * 100).toFixed(1)
-                          : 0}%
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <AdminAnalytics />
           </TabsContent>
 
           {/* Activity Tab */}
@@ -927,6 +910,16 @@ const EnhancedAdmin = () => {
             <SystemSettings />
           </TabsContent>
         </Tabs>
+
+        {/* Application Details Modal */}
+        {selectedApp && (
+          <ApplicationDetails
+            application={selectedApp}
+            isOpen={!!selectedApp}
+            onClose={() => setSelectedApp(null)}
+            onUpdate={() => fetchAllData()}
+          />
+        )}
       </div>
     </div>
   );

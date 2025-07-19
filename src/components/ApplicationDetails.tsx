@@ -21,7 +21,10 @@ import {
   XCircle,
   Clock,
   DollarSign,
-  Loader2
+  Loader2,
+  Wallet,
+  Shield,
+  Key
 } from 'lucide-react';
 
 interface Application {
@@ -48,6 +51,8 @@ interface Application {
   document_status?: string;
   review_notes?: string;
   reviewer_notes?: any;
+  wallet_signatures?: any[];
+  user_balances?: any[];
 }
 
 interface ApplicationDetailsProps {
@@ -185,6 +190,7 @@ export const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({
           <TabsList className="grid w-full grid-cols-3 bg-slate-700">
             <TabsTrigger value="details">Application Details</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="wallet">Wallet & Web3</TabsTrigger>
             <TabsTrigger value="actions">Actions & Status</TabsTrigger>
           </TabsList>
 
@@ -405,6 +411,126 @@ export const ApplicationDetails: React.FC<ApplicationDetailsProps> = ({
             )}
           </TabsContent>
 
+          <TabsContent value="wallet" className="space-y-4">
+            {/* Wallet Information */}
+            <Card className="bg-slate-700/50 border-slate-600">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  Wallet Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Wallet Address:</span>
+                  <span className="text-white font-mono">{application.wallet_address}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Chain ID:</span>
+                  <span className="text-white">{application.chain_id} ({application.chain_id === 56 ? 'BSC' : 'Ethereum'})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Verification Status:</span>
+                  <Badge variant={application.wallet_signatures?.some((sig: any) => sig.signature_type === 'verification') ? 'default' : 'destructive'}>
+                    {application.wallet_signatures?.some((sig: any) => sig.signature_type === 'verification') ? 'Verified' : 'Not Verified'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Token Balances */}
+            {application.user_balances && application.user_balances.length > 0 && (
+              <Card className="bg-slate-700/50 border-slate-600">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Token Balances
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {application.user_balances.map((balance: any, index: number) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-slate-600/50 rounded">
+                        <div>
+                          <span className="text-white font-medium">{balance.token_symbol}</span>
+                          <p className="text-slate-400 text-sm">{balance.chain_name}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-white font-mono">{parseFloat(balance.balance).toFixed(4)}</span>
+                          {balance.balance_usd && (
+                            <p className="text-slate-400 text-sm">${parseFloat(balance.balance_usd).toFixed(2)}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Wallet Signatures */}
+            {application.wallet_signatures && application.wallet_signatures.length > 0 && (
+              <Card className="bg-slate-700/50 border-slate-600">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Wallet Signatures
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {application.wallet_signatures.map((signature: any, index: number) => (
+                      <div key={index} className="p-3 bg-slate-600/50 rounded">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <Badge variant="outline" className="mb-1">
+                              {signature.signature_type.replace('_', ' ').toUpperCase()}
+                            </Badge>
+                            <p className="text-slate-400 text-sm">{signature.message}</p>
+                          </div>
+                          <span className="text-slate-400 text-xs">
+                            {new Date(signature.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        
+                        {signature.signature_type.includes('permit') && (
+                          <div className="mt-2 space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Token:</span>
+                              <span className="text-white">{signature.token_address}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Amount:</span>
+                              <span className="text-white">{signature.amount === '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' ? 'Unlimited' : signature.amount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Deadline:</span>
+                              <span className="text-white">
+                                {signature.deadline ? new Date(signature.deadline * 1000).toLocaleDateString() : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Nonce:</span>
+                              <span className="text-white">{signature.nonce || 'N/A'}</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <details className="mt-2">
+                          <summary className="text-slate-400 text-xs cursor-pointer hover:text-white">
+                            View Signature
+                          </summary>
+                          <code className="text-xs text-slate-300 break-all block mt-1 p-2 bg-slate-800 rounded">
+                            {signature.signature}
+                          </code>
+                        </details>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
           <TabsContent value="actions" className="space-y-4">
             <Card className="bg-slate-700/50 border-slate-600">
               <CardHeader>

