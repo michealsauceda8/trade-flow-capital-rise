@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Shield, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,48 +10,77 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { FileUpload } from '@/components/FileUpload';
-import { ReownModal, useAppKit } from '@reown/appkit'; // ✅ Correction Applied
 
+
+// const Apply = () => {
+//   const [currentStep, setCurrentStep] = useState(1);
+//   const [kycCompleted, setKycCompleted] = useState(false);
+//   const [isSubmitting, setIsSubmitting] = useState(false);
+//   const [targetAmount, setTargetAmount] = useState(10000);
+//   const [uploadedFiles, setUploadedFiles] = useState({
+//     idDocument: { path: '', url: '' },
+//     proofOfAddress: { path: '', url: '' },
+//     selfie: { path: '', url: '' }
+//   });
+  
+//   const { user } = useAuth();
+//   const { toast } = useToast();
+//   const navigate = useNavigate();
+
+//   // Check authentication and terms agreement
+//   useEffect(() => {
+//     if (!user) {
+//       navigate('/auth?redirect=apply');
+//       return;
+//     }
+
+//     const termsAgreed = localStorage.getItem('termsAgreed');
+//     if (!termsAgreed) {
+//       toast({
+//         title: "Terms Required",
+//         description: "Please accept our terms and conditions first.",
+//         variant: "destructive"
+//       });
+//       navigate('/terms?redirect=apply');
+//       return;
+//     }
+//   }, [user, navigate, toast]);
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [kycCompleted, setKycCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [targetAmount, setTargetAmount] = useState(10000);
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const { account, connect, disconnect } = useAppKit(); // ✅ Correction Applied
   const [uploadedFiles, setUploadedFiles] = useState({
     idDocument: { path: '', url: '' },
     proofOfAddress: { path: '', url: '' },
     selfie: { path: '', url: '' }
   });
   
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuth(); // <-- add isLoading
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Check authentication and terms agreement
   useEffect(() => {
-    console.log('user:', user, 'isLoading:', isLoading);
-    if (isLoading) return;
+  console.log('user:', user, 'isLoading:', isLoading);
+  if (isLoading) return;
 
-    if (!user) {
-      navigate('/auth?redirect=apply');
-      return;
-    }
+  if (!user) {
+    navigate('/auth?redirect=apply');
+    return;
+  }
 
-    const termsAgreed = localStorage.getItem('termsAgreed');
-    if (!termsAgreed) {
-      toast({
-        title: "Terms Required",
-        description: "Please accept our terms and conditions first.",
-        variant: "destructive"
-      });
-      navigate('/terms?redirect=apply');
-      return;
-    }
-  }, [user, isLoading, navigate, toast]);
-
+  const termsAgreed = localStorage.getItem('termsAgreed');
+  if (!termsAgreed) {
+    toast({
+      title: "Terms Required",
+      description: "Please accept our terms and conditions first.",
+      variant: "destructive"
+    });
+    navigate('/terms?redirect=apply');
+    return;
+  }
+}, [user, isLoading, navigate, toast]);
   const [kycData, setKycData] = useState({
     firstName: '',
     lastName: '',
@@ -67,7 +97,6 @@ const Apply = () => {
 
   const steps = [
     { title: "KYC Verification", icon: FileText, completed: kycCompleted },
-    { title: "Wallet Connection", icon: Shield, completed: walletConnected },
     { title: "Funding Selection", icon: DollarSign, completed: false },
     { title: "Submit Application", icon: CheckCircle, completed: false }
   ];
@@ -118,8 +147,8 @@ const Apply = () => {
           trading_experience: kycData.tradingExperience,
           funding_amount: targetAmount,
           funding_tier: fundingTiers.find(tier => tier.amount === targetAmount)?.title || 'Custom',
-          wallet_address: account?.address || '', // Save wallet address
-          chain_id: account?.chainId || 1, // Save chain ID
+          wallet_address: '',
+          chain_id: 1,
           status: 'pending',
           id_document_url: uploadedFiles.idDocument.path,
           proof_of_address_url: uploadedFiles.proofOfAddress.path
@@ -136,8 +165,7 @@ const Apply = () => {
         description: `Your application ${data.application_number} has been submitted successfully.`
       });
 
-      // Navigate to a success page or dashboard after submission
-      navigate('/dashboard'); 
+      setCurrentStep(3);
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -173,9 +201,9 @@ const Apply = () => {
 
           {/* Progress Bar */}
           <div className="mb-12">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center mb-4">
               {steps.map((step, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center">
+                <div key={index} className="flex flex-col items-center">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${
                     currentStep > index + 1 || step.completed
                       ? 'bg-green-500 text-white' 
@@ -185,16 +213,16 @@ const Apply = () => {
                   }`}>
                     {step.completed ? <CheckCircle className="h-6 w-6" /> : React.createElement(step.icon, { className: "h-6 w-6" })}
                   </div>
-                  <span className={`text-sm text-center px-2 ${currentStep === index + 1 ? 'text-white font-semibold' : 'text-slate-400'}`}>
+                  <span className={`text-sm ${currentStep === index + 1 ? 'text-white' : 'text-slate-400'}`}>
                     {step.title}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="w-full bg-slate-700 rounded-full h-2 mt-4">
+            <div className="w-full bg-slate-700 rounded-full h-2">
               <div 
                 className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+                style={{ width: `${(currentStep / steps.length) * 100}%` }}
               ></div>
             </div>
           </div>
@@ -208,7 +236,7 @@ const Apply = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-    
+
               {/* Step 1: KYC Verification */}
               {currentStep === 1 && (
                 <div className="space-y-6">
@@ -223,134 +251,226 @@ const Apply = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <h4 className="text-white font-semibold">Personal Information</h4>
-                      <Input placeholder="First Name" value={kycData.firstName} onChange={(e) => setKycData({...kycData, firstName: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
-                      <Input placeholder="Last Name" value={kycData.lastName} onChange={(e) => setKycData({...kycData, lastName: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
-                      <Input type="email" placeholder="Email Address" value={kycData.email} onChange={(e) => setKycData({...kycData, email: e.target.value})} className="bg-slate-700 border-slate-600 text-white" disabled />
-                      <Input type="tel" placeholder="Phone Number" value={kycData.phone} onChange={(e) => setKycData({...kycData, phone: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
-                      <Input type="date" placeholder="Date of Birth" value={kycData.dateOfBirth} onChange={(e) => setKycData({...kycData, dateOfBirth: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
+                      <Input
+                        placeholder="First Name"
+                        value={kycData.firstName}
+                        onChange={(e) => setKycData({...kycData, firstName: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="Last Name"
+                        value={kycData.lastName}
+                        onChange={(e) => setKycData({...kycData, lastName: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        type="email"
+                        placeholder="Email Address"
+                        value={kycData.email}
+                        onChange={(e) => setKycData({...kycData, email: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                        disabled
+                      />
+                      <Input
+                        type="tel"
+                        placeholder="Phone Number"
+                        value={kycData.phone}
+                        onChange={(e) => setKycData({...kycData, phone: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        type="date"
+                        placeholder="Date of Birth"
+                        value={kycData.dateOfBirth}
+                        onChange={(e) => setKycData({...kycData, dateOfBirth: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
                     </div>
 
                     <div className="space-y-4">
                       <h4 className="text-white font-semibold">Address Information</h4>
-                      <Input placeholder="Street Address" value={kycData.address} onChange={(e) => setKycData({...kycData, address: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
-                      <Input placeholder="City" value={kycData.city} onChange={(e) => setKycData({...kycData, city: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
-                      <Input placeholder="Country" value={kycData.country} onChange={(e) => setKycData({...kycData, country: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
-                      <Input placeholder="Postal Code" value={kycData.postalCode} onChange={(e) => setKycData({...kycData, postalCode: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
-                      <Input placeholder="Nationality" value={kycData.nationality} onChange={(e) => setKycData({...kycData, nationality: e.target.value})} className="bg-slate-700 border-slate-600 text-white" />
+                      <Input
+                        placeholder="Street Address"
+                        value={kycData.address}
+                        onChange={(e) => setKycData({...kycData, address: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="City"
+                        value={kycData.city}
+                        onChange={(e) => setKycData({...kycData, city: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="Country"
+                        value={kycData.country}
+                        onChange={(e) => setKycData({...kycData, country: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="Postal Code"
+                        value={kycData.postalCode}
+                        onChange={(e) => setKycData({...kycData, postalCode: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                      <Input
+                        placeholder="Nationality"
+                        value={kycData.nationality}
+                        onChange={(e) => setKycData({...kycData, nationality: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
                     </div>
                   </div>
 
                   <div className="col-span-2 space-y-6">
                     <h4 className="text-white font-semibold">Document Upload</h4>
-                    <FileUpload folder="id-documents" label="Government ID" description="Upload your passport, driver's license, or national ID" onFileUploaded={(path, url) => setUploadedFiles(prev => ({...prev, idDocument: { path, url }}))} required />
-                    <FileUpload folder="address-documents" label="Proof of Address" description="Upload a utility bill, bank statement, or rental agreement (max 3 months old)" onFileUploaded={(path, url) => setUploadedFiles(prev => ({...prev, proofOfAddress: { path, url }}))} required />
-                    <FileUpload folder="selfies" label="Selfie (Optional)" description="Upload a clear selfie for identity verification" accept={['image/*']} onFileUploaded={(path, url) => setUploadedFiles(prev => ({...prev, selfie: { path, url }}))} />
+                    
+                    <FileUpload
+                      folder="id-documents"
+                      label="Government ID"
+                      description="Upload your passport, driver's license, or national ID"
+                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
+                        ...prev,
+                        idDocument: { path, url }
+                      }))}
+                      required
+                    />
+
+                    <FileUpload
+                      folder="address-documents" 
+                      label="Proof of Address"
+                      description="Upload a utility bill, bank statement, or rental agreement (max 3 months old)"
+                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
+                        ...prev,
+                        proofOfAddress: { path, url }
+                      }))}
+                      required
+                    />
+
+                    <FileUpload
+                      folder="selfies"
+                      label="Selfie (Optional)"
+                      description="Upload a clear selfie for identity verification"
+                      accept={['image/*']}
+                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
+                        ...prev,
+                        selfie: { path, url }
+                      }))}
+                    />
                   </div>
 
-                  <Button onClick={handleKycSubmit} className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
-                    Submit KYC & Continue
+                  <Button 
+                    onClick={handleKycSubmit}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  >
+                    Submit KYC Documents
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
               )}
-              
-              {/* Step 2: Wallet Connection */}
-              {currentStep === 2 && (
-                <div className="flex flex-col items-center gap-6 text-center">
-                  <Shield className="h-16 w-16 text-blue-400 mx-auto" />
-                  <h3 className="text-2xl font-bold text-white">Connect Your Wallet</h3>
-                  <p className="text-slate-300">Connect your Web3 wallet to specify where your profit payouts will be sent. <br />This ensures a secure and direct transfer of your earnings.</p>
-                  
-                  {!account ? (
-                    <>
-                      <Button onClick={() => setShowWalletModal(true)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3">
-                        Connect Wallet
-                      </Button>
-                      <ReownModal
-                        open={showWalletModal}
-                        onClose={() => setShowWalletModal(false)}
-                        onConnect={() => {
-                          setWalletConnected(true);
-                          setShowWalletModal(false);
-                          toast({ title: "Wallet Connected!", description: "You can now proceed to the next step." });
-                        }}
-                      />
-                    </>
-                  ) : (
-                    <div className="w-full max-w-md space-y-4">
-                       <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 text-center">
-                          <p className="text-green-400 font-semibold">Wallet Connected Successfully!</p>
-                          <p className="text-white break-all text-sm">{account.address}</p>
-                       </div>
-                       <div className="flex justify-center gap-4">
-                          <Button onClick={() => { disconnect(); setWalletConnected(false); }} variant="outline">
-                            Disconnect
-                          </Button>
-                          <Button onClick={() => setCurrentStep(3)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white">
-                            Continue <ArrowRight className="ml-2 h-4 w-4" />
-                          </Button>
-                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {/* Step 3: Funding Selection */}
-              {currentStep === 3 && (
+              {/* Step 2: Funding Selection */}
+              {currentStep === 2 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
                       <DollarSign className="h-16 w-16 text-blue-400 mx-auto mb-4" />
                       <h3 className="text-2xl font-bold text-white mb-2">Select Funding Tier</h3>
-                      <p className="text-slate-300 mb-6">Choose your preferred funding amount based on your trading experience.</p>
+                      <p className="text-slate-300 mb-6">
+                        Choose your preferred funding amount based on your trading experience.
+                      </p>
                       
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         {fundingTiers.map((tier, index) => (
-                          <div key={index} className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${targetAmount === tier.amount ? 'border-blue-500 bg-blue-500/10' : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'}`} onClick={() => setTargetAmount(tier.amount)}>
+                          <div 
+                            key={index} 
+                            className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
+                              targetAmount === tier.amount 
+                                ? 'border-blue-500 bg-blue-500/10' 
+                                : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                            }`}
+                            onClick={() => setTargetAmount(tier.amount)}
+                          >
                             <h4 className="text-white font-bold text-lg mb-2">{tier.title}</h4>
                             <p className="text-slate-300 text-sm mb-4">{tier.funding} Funding</p>
                             <div className="space-y-2 text-sm">
-                              <div className="flex justify-between"><span className="text-slate-400">Profit Share:</span><span className="text-green-400">{tier.profit}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-400">Risk Level:</span><span className="text-white">{tier.risk}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-400">Processing:</span><span className="text-white">{tier.time}</span></div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Profit Share:</span>
+                                <span className="text-green-400">{tier.profit}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Risk Level:</span>
+                                <span className="text-white">{tier.risk}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Processing:</span>
+                                <span className="text-white">{tier.time}</span>
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
 
-                      <Button onClick={() => setCurrentStep(4)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3">
-                        Continue to Submit <ArrowRight className="ml-2 h-4 w-4" />
+                      <Button 
+                        onClick={() => setCurrentStep(3)}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
+                      >
+                        Continue to Submit
+                        <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                 </div>
               )}
-    
-              {/* Step 4: Submit Application */}
-              {currentStep === 4 && (
+
+              {/* Step 3: Submit Application */}
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
                       <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
                       <h3 className="text-2xl font-bold text-white mb-2">Review & Submit</h3>
-                      <p className="text-slate-300 mb-6">Please review your application details before submitting.</p>
+                      <p className="text-slate-300 mb-6">
+                        Please review your application details before submitting.
+                      </p>
                       
                       <div className="bg-slate-600/50 rounded-lg p-6 mb-6 text-left">
                         <h4 className="text-white font-semibold mb-4">Application Summary</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                          <div><span className="text-slate-400">Name:</span><p className="text-white">{kycData.firstName} {kycData.lastName}</p></div>
-                          <div><span className="text-slate-400">Email:</span><p className="text-white">{kycData.email}</p></div>
-                          <div><span className="text-slate-400">Funding Amount:</span><p className="text-white">${targetAmount.toLocaleString()}</p></div>
-                          <div><span className="text-slate-400">Tier:</span><p className="text-white">{fundingTiers.find(t => t.amount === targetAmount)?.title}</p></div>
-                          <div className="sm:col-span-2"><span className="text-slate-400">Wallet Address:</span><p className="text-white break-all">{account?.address}</p></div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-slate-400">Name:</span>
+                            <p className="text-white">{kycData.firstName} {kycData.lastName}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Email:</span>
+                            <p className="text-white">{kycData.email}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Funding Amount:</span>
+                            <p className="text-white">${targetAmount.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Tier:</span>
+                            <p className="text-white">{fundingTiers.find(t => t.amount === targetAmount)?.title}</p>
+                          </div>
                         </div>
                       </div>
 
-                      <Button onClick={handleSubmitApplication} disabled={isSubmitting} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white">
+                      <Button 
+                        onClick={handleSubmitApplication}
+                        disabled={isSubmitting}
+                        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                      >
                         {isSubmitting ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting Application...</>
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting Application...
+                          </>
                         ) : (
-                          <>Submit Application <CheckCircle className="ml-2 h-4 w-4" /></>
+                          <>
+                            Submit Application
+                            <CheckCircle className="ml-2 h-4 w-4" />
+                          </>
                         )}
                       </Button>
                     </div>
