@@ -12,6 +12,8 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import WalletAuth from "./pages/WalletAuth";
 import Admin from "./pages/Admin";
+import EnhancedAdmin from "./pages/EnhancedAdmin";
+import CreateAdmins from "./pages/CreateAdmins";
 import ApplicationTracking from "./pages/ApplicationTracking";
 import Dashboard from "./pages/Dashboard";
 
@@ -30,7 +32,9 @@ const App = () => (
           <Route path="/contact" element={<Contact />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/wallet-auth" element={<WalletAuth />} />
-          <Route path="/ordinal-admin" element={<Admin />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/enhanced-admin" element={<EnhancedAdmin />} />
+          <Route path="/create-admins" element={<CreateAdmins />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/track" element={<ApplicationTracking />} />
           <Route path="*" element={<NotFound />} />

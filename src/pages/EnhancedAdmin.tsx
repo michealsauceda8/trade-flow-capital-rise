@@ -207,20 +207,12 @@ const EnhancedAdmin = () => {
 
       if (error) throw error;
 
-      // Send email notification
-      await supabase.functions.invoke('send-email-notification', {
-        body: {
-          applicationId: selectedApp.id,
-          recipientEmail: selectedApp.email,
-          notificationType: 'status_change',
-          applicationNumber: selectedApp.application_number,
-          status: newStatus
-        }
-      });
+      // Note: Email notifications are now handled by database triggers
+      // The trigger will automatically insert into email_notifications table
 
       toast({
         title: "Status Updated",
-        description: `Application status changed to ${newStatus}. Email notification sent.`
+        description: `Application status changed to ${newStatus}. Email notification will be sent automatically.`
       });
 
       // Refresh data
@@ -243,18 +235,23 @@ const EnhancedAdmin = () => {
 
   const sendCustomEmail = async (appId: string, email: string, appNumber: string, type: string) => {
     try {
-      await supabase.functions.invoke('send-email-notification', {
-        body: {
-          applicationId: appId,
-          recipientEmail: email,
-          notificationType: type,
-          applicationNumber: appNumber
-        }
-      });
+      // Insert email notification directly into database
+      const { error } = await supabase
+        .from('email_notifications')
+        .insert({
+          application_id: appId,
+          recipient_email: email,
+          notification_type: type,
+          subject: `${type.replace('_', ' ')} - ${appNumber}`,
+          content: `Custom notification for application ${appNumber}`,
+          status: 'pending'
+        });
+
+      if (error) throw error;
 
       toast({
-        title: "Email Sent",
-        description: `${type.replace('_', ' ')} email sent successfully`
+        title: "Email Queued",
+        description: `${type.replace('_', ' ')} email has been queued for sending`
       });
 
       fetchAllData(); // Refresh to show new email in logs
