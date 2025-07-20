@@ -24,7 +24,13 @@ const Auth = () => {
   // Handle redirect when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(returnTo, { replace: true });
+      // Check if user needs to complete KYC first
+      if (returnTo === '/kyc' || returnTo.includes('kyc')) {
+        navigate(returnTo, { replace: true });
+      } else {
+        // For new users or users without KYC, redirect to KYC first
+        navigate('/kyc', { replace: true });
+      }
     }
   }, [isAuthenticated, navigate, returnTo]);
 

@@ -49,7 +49,7 @@ export const useKYC = (user: User | null) => {
         .from('kyc_verifications')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (kycError && kycError.code !== 'PGRST116') {
         throw kycError;

@@ -73,7 +73,7 @@ export const useProfile = (user: User | null) => {
         .from('user_profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError && profileError.code !== 'PGRST116') {
         throw profileError;
@@ -84,7 +84,7 @@ export const useProfile = (user: User | null) => {
         .from('kyc_verifications')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (kycError && kycError.code !== 'PGRST116') {
         throw kycError;
@@ -95,7 +95,7 @@ export const useProfile = (user: User | null) => {
         .from('user_security_settings')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (securityError && securityError.code !== 'PGRST116') {
         throw securityError;
