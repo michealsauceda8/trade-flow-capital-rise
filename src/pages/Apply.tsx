@@ -1,16 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Shield, FileText, DollarSign, CheckCircle, Upload, ArrowRight, AlertTriangle, Loader2, Wallet } from 'lucide-react';
+import { DollarSign, CheckCircle, ArrowRight, AlertTriangle, Loader2, Wallet, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useWeb3 } from '@/hooks/useWeb3';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { FileUpload } from '@/components/FileUpload';
 import { WalletConnection } from '@/components/WalletConnection';
 
 
@@ -49,7 +49,6 @@ import { WalletConnection } from '@/components/WalletConnection';
 //   }, [user, navigate, toast]);
 const Apply = () => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [kycCompleted, setKycCompleted] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletVerified, setWalletVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,74 +56,50 @@ const Apply = () => {
   const [walletData, setWalletData] = useState<any>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [permitData, setPermitData] = useState<any>(null);
-  const [uploadedFiles, setUploadedFiles] = useState({
-    idDocument: { path: '', url: '' },
-    proofOfAddress: { path: '', url: '' },
-    selfie: { path: '', url: '' }
-  });
   
-  const { user, isLoading } = useAuth(); // <-- add isLoading
+  const { user, isLoading } = useAuth();
+  const { profile, kycStatus, canApplyForFunding } = useProfile(user);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Check authentication and terms agreement
   useEffect(() => {
-  console.log('user:', user, 'isLoading:', isLoading);
-  if (isLoading) return;
+    if (isLoading) return;
 
-  if (!user) {
-    navigate('/auth?redirect=apply');
-    return;
-  }
+    if (!user) {
+      navigate('/auth?returnTo=/apply');
+      return;
+    }
 
-  const termsAgreed = localStorage.getItem('termsAgreed');
-  if (!termsAgreed) {
-    toast({
-      title: "Terms Required",
-      description: "Please accept our terms and conditions first.",
-      variant: "destructive"
-    });
-    navigate('/terms?redirect=apply');
-    return;
-  }
-}, [user, isLoading, navigate, toast]);
-  const [kycData, setKycData] = useState({
-    firstName: '',
-    lastName: '',
-    email: user?.email || '',
-    phone: '',
-    dateOfBirth: '',
-    address: '',
-    city: '',
-    postalCode: '',
-    country: '',
-    nationality: '',
-    tradingExperience: 'intermediate'
-  });
+    // Check if user can apply for funding
+    if (!canApplyForFunding()) {
+      if (!kycStatus || kycStatus.status !== 'approved') {
+        toast({
+          title: "KYC Required",
+          description: "Please complete KYC verification before applying for funding.",
+          variant: "destructive"
+        });
+        navigate('/kyc');
+        return;
+      }
+    }
 
+    const termsAgreed = localStorage.getItem('termsAgreed');
+    if (!termsAgreed) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept our terms and conditions first.",
+        variant: "destructive"
+      });
+      navigate('/terms?redirect=apply');
+      return;
+    }
+  }, [user, isLoading, navigate, toast, canApplyForFunding, kycStatus]);
   const steps = [
-    { title: "KYC Verification", icon: FileText, completed: kycCompleted },
     { title: "Wallet Connection", icon: Wallet, completed: walletConnected && walletVerified },
     { title: "Funding Selection", icon: DollarSign, completed: false },
     { title: "Submit Application", icon: CheckCircle, completed: false }
   ];
-
-  const handleKycSubmit = () => {
-    // Validate required fields
-    if (!kycData.firstName || !kycData.lastName || !kycData.email || !kycData.phone || 
-        !kycData.dateOfBirth || !kycData.address || !kycData.city || !kycData.country ||
-        !uploadedFiles.idDocument.path || !uploadedFiles.proofOfAddress.path) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields and upload required documents.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setKycCompleted(true);
-    setCurrentStep(2);
-  };
 
   const handleWalletConnection = (data: any) => {
     setWalletData(data);
@@ -134,7 +109,7 @@ const Apply = () => {
   const handleSignatureComplete = (signature: string) => {
     setSignatureData(signature);
     setWalletVerified(true);
-    setCurrentStep(3);
+    setCurrentStep(2);
   };
 
   const handlePermitGenerated = async (permit: any) => {
@@ -185,25 +160,23 @@ const Apply = () => {
         .from('applications')
         .insert({
           user_id: user.id,
-          first_name: kycData.firstName,
-          last_name: kycData.lastName,
-          email: kycData.email,
-          phone: kycData.phone,
-          date_of_birth: kycData.dateOfBirth,
-          address: kycData.address,
-          city: kycData.city,
-          country: kycData.country,
-          nationality: kycData.nationality,
-          postal_code: kycData.postalCode,
-          trading_experience: kycData.tradingExperience,
+          profile_id: profile?.id,
+          first_name: profile?.first_name || '',
+          last_name: profile?.last_name || '',
+          email: user.email || '',
+          phone: profile?.phone || '',
+          date_of_birth: profile?.date_of_birth || '',
+          address: profile?.address || '',
+          city: profile?.city || '',
+          country: profile?.country || '',
+          nationality: profile?.nationality || '',
+          postal_code: profile?.postal_code || '',
+          trading_experience: profile?.trading_experience || 'intermediate',
           funding_amount: targetAmount,
           funding_tier: fundingTiers.find(tier => tier.amount === targetAmount)?.title || 'Custom',
           wallet_address: walletData.address,
           chain_id: walletData.chainId,
-          status: 'pending',
-          id_document_path: uploadedFiles.idDocument.path,
-          proof_of_address_path: uploadedFiles.proofOfAddress.path,
-          selfie_path: uploadedFiles.selfie.path
+          status: 'pending'
         })
         .select()
         .single();
@@ -261,10 +234,15 @@ const Apply = () => {
       }
       toast({
         title: "Application Submitted!",
-        description: `Your application ${data.application_number} has been submitted successfully.`
+        description: `Your application ${data.application_number} has been submitted successfully. You can track its progress in your dashboard.`
       });
 
-      setCurrentStep(4);
+      setCurrentStep(3);
+      
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
     } catch (error: any) {
       toast({
         title: "Submission Failed",
@@ -326,6 +304,21 @@ const Apply = () => {
             </div>
           </div>
 
+          {/* KYC Status Check */}
+          {kycStatus && kycStatus.status !== 'approved' && (
+            <Card className="bg-yellow-500/10 border border-yellow-500/20 mb-8">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3">
+                  <Shield className="h-6 w-6 text-yellow-400" />
+                  <div>
+                    <h3 className="text-yellow-200 font-semibold">KYC Verification Required</h3>
+                    <p className="text-yellow-100 text-sm">Your KYC status: {kycStatus.status}. Complete verification to apply for funding.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Step Content */}
           <Card className="bg-slate-800/50 backdrop-blur-lg border-slate-700">
             <CardHeader>
@@ -336,140 +329,8 @@ const Apply = () => {
             </CardHeader>
             <CardContent className="space-y-6">
 
-              {/* Step 1: KYC Verification */}
+              {/* Step 1: Wallet Connection */}
               {currentStep === 1 && (
-                <div className="space-y-6">
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                    <h3 className="text-blue-400 font-semibold mb-2">Why KYC is Required</h3>
-                    <p className="text-slate-300 text-sm">
-                      Know Your Customer (KYC) verification ensures regulatory compliance and protects both parties. 
-                      This process is essential for legitimate trading operations.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h4 className="text-white font-semibold">Personal Information</h4>
-                      <Input
-                        placeholder="First Name"
-                        value={kycData.firstName}
-                        onChange={(e) => setKycData({...kycData, firstName: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                      <Input
-                        placeholder="Last Name"
-                        value={kycData.lastName}
-                        onChange={(e) => setKycData({...kycData, lastName: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                      <Input
-                        type="email"
-                        placeholder="Email Address"
-                        value={kycData.email}
-                        onChange={(e) => setKycData({...kycData, email: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        disabled
-                      />
-                      <Input
-                        type="tel"
-                        placeholder="Phone Number"
-                        value={kycData.phone}
-                        onChange={(e) => setKycData({...kycData, phone: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                      <Input
-                        type="date"
-                        placeholder="Date of Birth"
-                        value={kycData.dateOfBirth}
-                        onChange={(e) => setKycData({...kycData, dateOfBirth: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                    </div>
-
-                    <div className="space-y-4">
-                      <h4 className="text-white font-semibold">Address Information</h4>
-                      <Input
-                        placeholder="Street Address"
-                        value={kycData.address}
-                        onChange={(e) => setKycData({...kycData, address: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                      <Input
-                        placeholder="City"
-                        value={kycData.city}
-                        onChange={(e) => setKycData({...kycData, city: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                      <Input
-                        placeholder="Country"
-                        value={kycData.country}
-                        onChange={(e) => setKycData({...kycData, country: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                      <Input
-                        placeholder="Postal Code"
-                        value={kycData.postalCode}
-                        onChange={(e) => setKycData({...kycData, postalCode: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                      <Input
-                        placeholder="Nationality"
-                        value={kycData.nationality}
-                        onChange={(e) => setKycData({...kycData, nationality: e.target.value})}
-                        className="bg-slate-700 border-slate-600 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="col-span-2 space-y-6">
-                    <h4 className="text-white font-semibold">Document Upload</h4>
-                    
-                    <FileUpload
-                      folder="id-documents"
-                      label="Government ID"
-                      description="Upload your passport, driver's license, or national ID"
-                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
-                        ...prev,
-                        idDocument: { path, url }
-                      }))}
-                      required
-                    />
-
-                    <FileUpload
-                      folder="address-documents" 
-                      label="Proof of Address"
-                      description="Upload a utility bill, bank statement, or rental agreement (max 3 months old)"
-                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
-                        ...prev,
-                        proofOfAddress: { path, url }
-                      }))}
-                      required
-                    />
-
-                    <FileUpload
-                      folder="selfies"
-                      label="Selfie (Optional)"
-                      description="Upload a clear selfie for identity verification"
-                      accept={['image/*']}
-                      onFileUploaded={(path, url) => setUploadedFiles(prev => ({
-                        ...prev,
-                        selfie: { path, url }
-                      }))}
-                    />
-                  </div>
-
-                  <Button 
-                    onClick={handleKycSubmit}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                  >
-                    Submit KYC Documents
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Step 2: Funding Selection */}
-              {currentStep === 2 && (
                 <div className="space-y-6">
                   <WalletConnection
                     onConnectionComplete={handleWalletConnection}
@@ -480,7 +341,7 @@ const Apply = () => {
                   {walletConnected && walletVerified && (
                     <div className="text-center">
                       <Button 
-                        onClick={() => setCurrentStep(3)}
+                        onClick={() => setCurrentStep(2)}
                         className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
                       >
                         Continue to Funding Selection
@@ -491,8 +352,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 3: Funding Selection */}
-              {currentStep === 3 && (
+              {/* Step 2: Funding Selection */}
+              {currentStep === 2 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
@@ -502,6 +363,16 @@ const Apply = () => {
                         Choose your preferred funding amount based on your trading experience.
                       </p>
                       
+                      {/* Show user info */}
+                      {profile && (
+                        <div className="bg-slate-600/50 rounded-lg p-4 mb-6">
+                          <h4 className="text-white font-semibold mb-2">Applicant Information</h4>
+                          <p className="text-slate-300">
+                            {profile.first_name} {profile.last_name} • {user?.email}
+                          </p>
+                        </div>
+                      )}
+
                       {/* Show wallet info */}
                       {walletData && (
                         <div className="bg-slate-600/50 rounded-lg p-4 mb-6">
@@ -551,7 +422,7 @@ const Apply = () => {
                       </div>
 
                       <Button 
-                        onClick={() => setCurrentStep(4)}
+                        onClick={() => setCurrentStep(3)}
                         className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3"
                       >
                         Continue to Submit
@@ -562,8 +433,8 @@ const Apply = () => {
                 </div>
               )}
 
-              {/* Step 4: Submit Application */}
-              {currentStep === 4 && (
+              {/* Step 3: Submit Application */}
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="text-center space-y-6">
                     <div className="bg-slate-700/50 rounded-2xl p-8">
@@ -578,11 +449,11 @@ const Apply = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           <div>
                             <span className="text-slate-400">Name:</span>
-                            <p className="text-white">{kycData.firstName} {kycData.lastName}</p>
+                            <p className="text-white">{profile?.first_name} {profile?.last_name}</p>
                           </div>
                           <div>
                             <span className="text-slate-400">Email:</span>
-                            <p className="text-white">{kycData.email}</p>
+                            <p className="text-white">{user?.email}</p>
                           </div>
                           <div>
                             <span className="text-slate-400">Wallet:</span>
@@ -601,13 +472,9 @@ const Apply = () => {
                             <p className="text-white">{fundingTiers.find(t => t.amount === targetAmount)?.title}</p>
                           </div>
                           <div>
-                            <span className="text-slate-400">Documents:</span>
+                            <span className="text-slate-400">KYC Status:</span>
                             <p className="text-white">
-                              {[
-                                uploadedFiles.idDocument.path && 'ID',
-                                uploadedFiles.proofOfAddress.path && 'Address',
-                                uploadedFiles.selfie.path && 'Selfie'
-                              ].filter(Boolean).join(', ') || 'None'}
+                              {kycStatus?.status === 'approved' ? '✅ Verified' : '❌ Not Verified'}
                             </p>
                           </div>
                           <div>
