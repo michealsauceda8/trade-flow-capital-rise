@@ -20,6 +20,14 @@ export const useAuth = () => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        
+        // Redirect new users to KYC after signup
+        if (event === 'SIGNED_UP' && session?.user) {
+          // Small delay to ensure user data is created
+          setTimeout(() => {
+            window.location.href = '/kyc';
+          }, 1000);
+        }
       }
     );
 

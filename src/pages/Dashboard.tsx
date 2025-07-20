@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,8 @@ import {
   LogOut,
   Wallet,
   Shield,
-  Key
+  Key,
+  User
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -45,6 +47,7 @@ const Dashboard = () => {
   });
 
   const { user, signOut, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { profile, kycStatus, canApplyForFunding } = useProfile(user);
   const navigate = useNavigate();
 
   // Handle redirect to auth if not authenticated
@@ -161,18 +164,34 @@ const Dashboard = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Trading Dashboard</h1>
+            <div className="text-sm text-slate-400">
+              Welcome back, {profile?.first_name || user?.email?.split('@')[0] || 'User'}
+            </div>
             <div className="text-sm text-muted-foreground">
-              {userDisplayName}
+              {user?.email}
             </div>
           </div>
           <div className="flex items-center space-x-4 mt-4 sm:mt-0">
             <Button 
               variant="outline" 
+              onClick={() => navigate('/profile')}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800"
+            >
+              <User className="w-4 h-4 mr-2" />
+              Profile
+            </Button>
+            <Button 
+              variant="outline" 
               onClick={() => navigate('/apply')}
-              className="border-blue-600 text-blue-400 hover:bg-blue-600/10"
+              className={`${
+                canApplyForFunding() 
+                  ? 'border-blue-600 text-blue-400 hover:bg-blue-600/10' 
+                  : 'border-slate-600 text-slate-500 cursor-not-allowed'
+              }`}
+              disabled={!canApplyForFunding()}
             >
               <Plus className="w-4 h-4 mr-2" />
-              New Application
+              {canApplyForFunding() ? 'New Application' : 'Complete KYC First'}
             </Button>
             <Button 
               variant="ghost" 
@@ -187,6 +206,44 @@ const Dashboard = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* KYC Status Card */}
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">KYC Status</p>
+                  <p className={`text-lg font-bold ${
+                    kycStatus?.status === 'approved' ? 'text-green-400' :
+                    kycStatus?.status === 'under_review' ? 'text-yellow-400' :
+                    kycStatus?.status === 'rejected' ? 'text-red-400' :
+                    'text-slate-400'
+                  }`}>
+                    {kycStatus?.status === 'approved' ? 'Verified' :
+                     kycStatus?.status === 'under_review' ? 'Under Review' :
+                     kycStatus?.status === 'rejected' ? 'Rejected' :
+                     'Pending'
+                    }
+                  </p>
+                </div>
+                <Shield className={`h-8 w-8 ${
+                  kycStatus?.status === 'approved' ? 'text-green-400' :
+                  kycStatus?.status === 'under_review' ? 'text-yellow-400' :
+                  kycStatus?.status === 'rejected' ? 'text-red-400' :
+                  'text-slate-400'
+                }`} />
+              </div>
+              {!canApplyForFunding() && (
+                <Button
+                  size="sm"
+                  onClick={() => navigate('/kyc')}
+                  className="w-full mt-3 bg-blue-600 hover:bg-blue-700"
+                >
+                  Complete KYC
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -239,6 +296,26 @@ const Dashboard = () => {
         {/* Applications List */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
+            {/* KYC Warning */}
+            {!canApplyForFunding() && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                  <div>
+                    <h4 className="text-yellow-200 font-semibold">KYC Verification Required</h4>
+                    <p className="text-yellow-100 text-sm">
+                      Complete your KYC verification to apply for funding and access all platform features.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => navigate('/kyc')}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                  >
+                    Start KYC
+                  </Button>
+                </div>
+              </div>
+            )}
             <CardTitle className="text-white">Your Applications</CardTitle>
             <CardDescription className="text-slate-400">
               Track the status of your funding applications
@@ -255,9 +332,10 @@ const Dashboard = () => {
                 <Button 
                   onClick={() => navigate('/apply')}
                   className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  disabled={!canApplyForFunding()}
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Application
+                  {canApplyForFunding() ? 'Create Application' : 'Complete KYC First'}
                 </Button>
               </div>
             ) : (

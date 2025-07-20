@@ -139,6 +139,18 @@ const Navbar = () => {
                   </Button>
                 </Link>
 
+                {/* Profile Link */}
+                <Link to="/profile">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-slate-300 hover:text-white"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Profile
+                  </Button>
+                </Link>
+
                 {/* Logout */}
                 <Button 
                   variant="ghost" 
@@ -229,6 +241,13 @@ const Navbar = () => {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Dashboard
+                  </Link>
+                  <Link 
+                    to="/profile" 
+                    className="text-slate-300 hover:text-white transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Profile
                   </Link>
                   <button 
                     onClick={() => {

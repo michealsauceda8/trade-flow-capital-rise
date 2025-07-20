@@ -16,6 +16,8 @@ import EnhancedAdmin from "./pages/EnhancedAdmin";
 import CreateAdmins from "./pages/CreateAdmins";
 import ApplicationTracking from "./pages/ApplicationTracking";
 import Dashboard from "./pages/Dashboard";
+import KYC from "./pages/KYC";
+import Profile from "./pages/Profile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -35,6 +37,16 @@ const App = () => (
             <Route path="/track" element={<ApplicationTracking />} />
             
             {/* Protected Routes */}
+            <Route path="/kyc" element={
+              <ProtectedRoute>
+                <KYC />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
             <Route path="/apply" element={
               <ProtectedRoute>
                 <Apply />
